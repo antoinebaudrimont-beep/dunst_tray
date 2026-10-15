@@ -130,3 +130,77 @@ class TrayStateTests(unittest.TestCase):
         self.tray._hide_window()
         self.assertTrue(self.tray.status_icon.get_visible())
         self.assertFalse(self.tray.window.get_visible())
+
+    def test_settings_apply_cancel_defaults_and_icon_spacing(self):
+        from dunst_tray.config import AppConfig, load_config
+        from dunst_tray.settings import RESTORE_DEFAULTS
+        from dunst_tray.ui import Gtk
+        self.history.add(notification("Synthetic App"))
+        self.tray.refresh()
+        self.tray._show_settings(None)
+        dialog = self.tray.settings_dialog
+        self.tray._show_settings(None)
+        self.assertIs(self.tray.settings_dialog, dialog)
+        dialog.opacity.set_value(65)
+        dialog.width.set_value(320)
+        dialog.height.set_value(430)
+        dialog.radius.set_value(24)
+        dialog.show_icons.set_active(False)
+        dialog.response(Gtk.ResponseType.APPLY)
+        self.assertIn("Saved", dialog.status.get_text())
+        self.assertEqual(self.tray.config.panel_opacity, 65)
+        self.assertEqual(self.tray.config.corner_radius, 24)
+        self.assertEqual(load_config(self.tray.config_path), self.tray.config)
+        self.assertEqual(self.history.count(), 1)
+        card = self.tray.groups_box.get_children()[0]
+        self.assertEqual(len(card.header.get_child().get_children()), 2)
+        saved = self.tray.config
+        dialog.response(RESTORE_DEFAULTS)
+        self.assertEqual(dialog.draft().panel_opacity, AppConfig().panel_opacity)
+        self.assertEqual(self.tray.config, saved)
+        dialog.response(Gtk.ResponseType.CANCEL)
+        self.assertIsNone(self.tray.settings_dialog)
+        self.assertEqual(self.tray.config, saved)
+        self.tray._show_settings(None)
+        self.assertEqual(self.tray.settings_dialog.width.get_value_as_int(), 320)
+        self.tray.settings_dialog.response(RESTORE_DEFAULTS)
+        self.tray.settings_dialog.response(Gtk.ResponseType.APPLY)
+        self.assertEqual(self.tray.config, AppConfig())
+
+    def test_refresh_preserves_expansion_and_paging(self):
+        for number in range(10):
+            self.history.add(replace(notification("Synthetic App"),
+                                     received_at=number))
+        self.tray.refresh()
+        card = self.tray.groups_box.get_children()[0]
+        card._toggle(card.header)
+        card._show_older(None)
+        self.tray.refresh()
+        card = self.tray.groups_box.get_children()[0]
+        self.assertTrue(card.expanded)
+        self.assertEqual(card.visible_count, 10)
+
+    def test_panel_bounds_background_alpha_and_corner_clipping(self):
+        import cairo
+        import time
+        from dunst_tray.ui import Gtk
+        self.tray._apply_appearance(replace(
+            self.tray.config, panel_width=280, panel_height=300,
+            panel_opacity=50, corner_radius=24,
+        ))
+        self.tray.toggle_center()
+        for _ in range(20):
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            time.sleep(0.01)
+        width, height = self.tray.window.get_size()
+        self.assertEqual((width, height), (280, 300))
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        self.tray.window.draw(cairo.Context(surface))
+        surface.flush()
+        pixels = surface.get_data()
+        if self.tray.window.get_screen().is_composited():
+            self.assertEqual(pixels[3], 0)
+            alpha = pixels[(height - 24) * surface.get_stride() + width // 2 * 4 + 3]
+            self.assertGreaterEqual(alpha, 120)
+            self.assertLessEqual(alpha, 140)

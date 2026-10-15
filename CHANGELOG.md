@@ -7,6 +7,10 @@ Versioning once releases are tagged.
 
 ### Added
 
+- Persistent unread state and a clean tray bell with one white dot for unread
+  messages, independent of Do Not Disturb.
+- GTK appearance settings with Apply/Cancel/Restore Defaults, atomic saving,
+  work-area size fitting, background opacity, rounded clipping, and icon toggle.
 - Initial GTK3 tray application and grouped notification center.
 - Passive D-Bus capture with private, bounded SQLite persistence.
 - Dunst pause, replay, clear-history, and action controls.
@@ -14,6 +18,10 @@ Versioning once releases are tagged.
 
 ### Fixed
 
+- Disable unverified notification callbacks and missing/ambiguous app targets;
+  label verified window focusing **Show app**.
+- Preserve expanded groups, paging, and scroll during visible updates, and
+  coalesce notification bursts without polling.
 - Resolve installed application icons when notifications omit their icon,
   including existing ChatGPT history entries.
 - Activate running installed desktop applications from retained notifications

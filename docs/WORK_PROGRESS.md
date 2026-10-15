@@ -1,7 +1,7 @@
 # Work progress — resumable implementation
 
-Updated: 2026-10-15 10:08 CEST (Europe/Vienna).
-Branch: `main`. HEAD before phase C commit: `9a0a15b`.
+Updated: 2026-10-15 10:17 CEST (Europe/Vienna).
+Branch: `main`. HEAD before phase D commit: `e644294`.
 Initial implementation baseline: `47f79f1`.
 Working tree was clean. No remote, publication, or release operation is planned.
 
@@ -26,13 +26,13 @@ Working tree was clean. No remote, publication, or release operation is planned.
 
 1. A/B: focused action/icon audit and synthetic future-aerc coverage — COMPLETE.
 2. C: persistent unread state; theme bell with a single white dot — COMPLETE.
-3. D: graphical panel settings and atomic persistence — NEXT.
-4. E/F: full regression, isolated live X11 acceptance, install/restart — pending.
+3. D: graphical panel settings and atomic persistence — COMPLETE.
+4. E/F: full regression, isolated live X11 acceptance, install/restart — NEXT.
 
 ## Live evidence for this continuation
 
-- 26 pure unit tests pass; 5 opt-in GTK checks are skipped in default discovery
-  and all 5 pass with `DUNST_TRAY_GUI_TESTS=1` (31 total).
+- 29 pure unit tests pass; 8 opt-in GTK checks all pass with
+  `DUNST_TRAY_GUI_TESTS=1` (37 total, 8 skips in default discovery).
 - Live X11 focus confirmed with `_NET_ACTIVE_WINDOW` after activation: ChatGPT
   `0x6000004`, Task Manager `0x5600007` (additional generic application), and
   Walite `0x580000e`. Restored focus to ChatGPT afterward.
@@ -71,6 +71,27 @@ Config backup made at
 `~/.config/dunst-tray/config.ini.before-appearance-20261015` (not in Git).
 Phase C files: model.py, history.py, tray_icon.py, ui.py, installer dependency
 check, README, tests/test_history.py, tests/test_gui.py, and this checkpoint.
+Phase C commit: `e644294`.
+
+## Phase D completed
+
+- Compact nonblocking GTK settings: opacity 50–100%, width 280–550, height
+  300–850, radius 0–24, show icons; Apply, Cancel and Restore Defaults.
+- Atomic mode-0600 saving preserves other options. Apply repaints immediately,
+  history/DND/capture remain independent; restoring controls does not save.
+- Both dimensions fit monitor work areas, including smaller/offset monitors.
+  Rounded visual/input clipping applies to the entire window when composited.
+  Opaque square fallback without a compositor is implemented, not yet live-tested.
+- Found and fixed GTK natural width overriding 280 px. Live GTK check confirms
+  exact 280×300 rendering, transparent corner alpha 0, and background alpha
+  approximately 128 at 50% opacity. Settings lifecycle, persistence, icon spacing,
+  expansion/paging preservation, and malformed-config preservation all pass.
+- Visually inspected window-only synthetic center and settings captures plus
+  clean/dotted bells at 16/22/24/32 on light/dark sample backgrounds. Layout and
+  contrast accepted. This is not a claim of changing/testing the actual light
+  Xfce panel. Actual dark-panel XEmbed acceptance remains next.
+- Phase D changed config.py, panel.py, settings.py, ui.py, default config,
+  config/GTK tests, README, architecture, changelog, and this checkpoint.
 
 ## Exact next steps
 
@@ -81,9 +102,11 @@ git log -5 --oneline
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Begin phase D. Extend validated configuration with opacity, radius and icon
-visibility; atomically persist Apply while preserving unrelated settings. Add
-compact GTK appearance controls with Apply/Cancel/Restore Defaults. Apply to the
-center immediately without changing Dunst/history, clamp both dimensions to
-monitor work area, and verify compositor clipping. Add focused tests, update
-this checkpoint and commit before final live acceptance/deployment.
+Run the full suite with GUI enabled, then a short isolated live passive-capture
+acceptance with actual Dunst and Xfce tray: zero/one/20 unread, opening/closing,
+DND, restart persistence, real mouse activation, settings repaint/persistence,
+clear without clearing user Dunst history. Stop the installed old tray during
+synthetic capture so it cannot retain fixtures. Clean only known synthetic
+Dunst IDs. Preserve/restore the user's pause level and focus. Then install and
+restart the validated build, compare installed files, verify the running PID,
+record exact results and remaining manual gaps, and commit the final checkpoint.

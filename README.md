@@ -34,6 +34,7 @@ mouse behavior still need a manual desktop pass; see
 - Private SQLite persistence across tray and Dunst restarts.
 - Application icons resolved from notification data or installed desktop
   entries, with a safe symbolic fallback.
+- Graphical panel appearance settings for opacity, size, corners, and icons.
 - Durable **Open** controls for every retained Walite notification, using
   Walite's own X11 window marker to raise the running application.
 - Durable application activation for installed desktop applications such as
@@ -98,6 +99,9 @@ page_size = 5
 [panel]
 width = 380
 height = 680
+opacity = 97
+corner_radius = 14
+show_icons = true
 margin_top = 48
 margin_right = 16
 
@@ -105,7 +109,14 @@ margin_right = 16
 monitor_dbus = true
 ```
 
-Restart `dunst-tray` after editing. The Settings menu reports the active path.
+Use **Settings** in the tray menu to change appearance immediately. The dialog
+offers opacity 50–100%, width 280–550 px, height 300–850 px, corner radius
+0–24 px, and application-icon visibility. **Apply** saves and repaints;
+**Cancel** discards edits since the last Apply. **Restore Defaults** fills the
+controls without saving until Apply. Size is fitted to the monitor work area.
+Opacity affects the background, keeping text readable; opacity and rounded
+clipping require an X11 compositor. Without one the panel is opaque and square.
+Restart the tray only after manually editing the configuration file.
 The database directory is mode `0700` and the database is mode `0600`. Only
 display-relevant fields, action identifiers, and the `desktop-entry` application
 identity are saved; sender PID and arbitrary D-Bus hints are not persisted.
@@ -187,11 +198,11 @@ companion history is captured before that rule is applied.
   callback or launch an application that has exited. Empty or unavailable
   notification icons fall back to the installed application's icon, honoring
   user desktop-file overrides.
-- Unresolved notification actions are D-Bus callbacks, not durable commands. Dunst
-  1.12.2 addresses actions by visible stack position, not saved notification
-  ID, so **Open** is enabled only for the newest record and can still stop
-  working after its popup expires, the sender exits, or Dunst restarts. Saved
-  text remains available.
+- Original notification actions are D-Bus callbacks, not durable commands.
+  Dunst 1.12.2 addresses them by popup position rather than retained ID. The
+  center therefore offers verified application focusing, labeled **Show app**,
+  rather than replaying callbacks that might now refer to another notification.
+  Unknown, missing, and ambiguous window targets are disabled with a tooltip.
 - Passive monitoring can see notification content from all applications in the
   user's session. Keep the database private and use Clear or uninstall
   `--purge` when appropriate.
@@ -201,8 +212,8 @@ companion history is captured before that rule is applied.
 - `Gtk.StatusIcon` is intentionally used for low-overhead X11/XEmbed support. It
   is not a Wayland status-notifier implementation.
 - Rounded panel corners depend on an active X11 compositor.
-- Settings are file-based; the Settings menu identifies the file rather than
-  providing a full preferences editor.
+- The appearance dialog atomically saves only panel preferences and preserves
+  unrelated settings. It does not alter Dunst popups or clear notification text.
 
 ## Run tests
 

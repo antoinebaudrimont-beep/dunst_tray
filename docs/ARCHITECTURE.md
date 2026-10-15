@@ -18,6 +18,12 @@
   matching window for retained actions.
 - `ui.py` owns the XEmbed tray icon and GTK window. Application groups are
   reconstructed from the bounded store when the view changes.
+- `tray_icon.py` caches an in-memory, theme-colored clean bell with one optional
+  white unread dot. DND never selects a different bell image.
+- `settings.py` edits draft appearance preferences. `config.py` bounds values,
+  fits panel geometry, and atomically saves only appearance options.
+- `panel.py` clips background and children to rounded compositor-backed X11
+  surfaces; without a compositor it uses an opaque rectangular surface.
 
 ## Event path
 
@@ -45,11 +51,11 @@ messages even if Dunst displays a single replacing popup.
 
 The monitor correlates a `Notify` call's sender/serial pair with the method
 reply's destination/reply-serial pair and records the returned Dunst ID. Dunst
-1.12.2 nevertheless invokes actions by visible stack position, not by ID. For
-applications without a resolved desktop identity or a dedicated adapter, the UI
-enables **Open** only on the newest notification and invokes position 0. Older
-unresolved actions remain disabled, and even the newest callback becomes invalid
-when the popup or sender exits.
+1.12.2 nevertheless invokes actions by visible stack position, not by ID. The
+center does not offer unverified position-based callbacks. **Show app** means
+verified application focus, never selection of a specific message. Availability
+is cached per application for each panel rebuild; missing, unknown, or ambiguous
+targets are disabled with explanations. Clicks revalidate the target.
 
 Installed desktop applications such as ChatGPT use durable window activation.
 The notification's `desktop-entry` hint, or an unambiguous display name for
@@ -77,4 +83,21 @@ raises the application but does not claim to select the original chat.
   report an error rather than starting another daemon.
 - SQLite retention runs in the same transaction as each insert.
 - A single-instance file lock prevents duplicate local history capture.
+
+## Unread and appearance
+
+The SQLite unread flag defaults true for new captures. Existing pre-unread
+history migrates as read. Opening the center acknowledges the retained snapshot;
+new arrivals while open stay unread until the next explicit opening. Closing,
+DND changes, and appearance edits do not acknowledge anything. Retention and
+clearing naturally remove associated unread flags.
+
+Hidden-center arrivals only update the in-memory bell/tooltip. Visible bursts
+coalesce into one event-driven panel rebuild, preserving expansion, paging, and
+scroll position. There is no polling or continually generated icon file.
+
+Appearance Apply validates and atomically replaces config.ini with mode 0600,
+preserving unrelated options. Cancel and Restore Defaults do not save. The CSS
+provider updates in place; the rounded window clips child drawing and input
+corners, and geometry responds to monitor/work-area changes.
 

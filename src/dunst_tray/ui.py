@@ -18,8 +18,11 @@ from .activation import (
     ActivationError, DesktopWindowActivator, WaliteWindowActivator, WindowActions,
 )
 from .applications import ApplicationCatalog
+from .config import panel_geometry, save_appearance
 from .dunst import DunstControlError, DunstController
 from .model import Notification
+from .panel import PanelWindow
+from .settings import AppearanceDialog
 from .tray_icon import render_bell
 
 if TYPE_CHECKING:
@@ -39,7 +42,7 @@ CSS = b"""
 .center-title { font-size: 16px; font-weight: bold; }
 .groups { padding: 4px 10px 12px 10px; }
 .group-card {
-  background: rgba(62, 62, 62, 0.92);
+  background: rgba(255, 255, 255, 0.13);
   border-radius: 10px;
   margin: 4px 0;
   padding: 3px;
@@ -52,7 +55,7 @@ CSS = b"""
 .message-body { color: #dddddd; }
 .message-time { color: #aaaaaa; font-size: 9px; }
 .empty { color: #bdbdbd; padding: 30px; }
-button { color: #f4f4f4; }
+.notification-center button { color: #f4f4f4; }
 """
 
 
@@ -82,6 +85,7 @@ class GroupCard(Gtk.Box):
         can_activate,
         action_callback,
         applications: ApplicationCatalog,
+        show_icons: bool = True,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("group-card")
@@ -99,10 +103,11 @@ class GroupCard(Gtk.Box):
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
         self.arrow = Gtk.Label(label="▸")
         header_box.pack_start(self.arrow, False, False, 0)
-        header_box.pack_start(
-            self._application_icon(notifications[0], applications),
-            False, False, 0,
-        )
+        if show_icons:
+            header_box.pack_start(
+                self._application_icon(notifications[0], applications),
+                False, False, 0,
+            )
 
         text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         name = _label(f"{app_name} — {len(notifications)}", "app-name")
@@ -236,9 +241,17 @@ class TrayApplication:
         self._tray_color_widget = Gtk.Label()
         self._dunst_paused: bool | None = None
         self._syncing_pause = False
+        self.settings_dialog = None
+        self._refresh_source = None
 
         self._install_css()
         self.window = self._build_window()
+        screen = self.window.get_screen()
+        self._screen_signals = []
+        if screen:
+            for signal in ("monitors-changed", "size-changed", "composited-changed"):
+                signal_id = screen.connect(signal, self._screen_changed)
+                self._screen_signals.append((screen, signal_id))
         self.status_icon = Gtk.StatusIcon()
         self.status_icon.set_title("Dunst Tray")
         self.status_icon.set_visible(True)
@@ -257,18 +270,36 @@ class TrayApplication:
         self.refresh()
         self.refresh_dunst_state()
 
-    @staticmethod
-    def _install_css() -> None:
-        provider = Gtk.CssProvider()
-        provider.load_from_data(CSS)
+    def _install_css(self) -> None:
+        self._css_provider = Gtk.CssProvider()
+        self._reload_css()
         screen = Gdk.Screen.get_default()
         if screen is not None:
             Gtk.StyleContext.add_provider_for_screen(
-                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+                screen, self._css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             )
 
+    def _reload_css(self) -> None:
+        screen = Gdk.Screen.get_default()
+        composited = bool(screen and screen.is_composited())
+        opacity = self.config.panel_opacity / 100 if composited else 1
+        radius = self.config.corner_radius if composited else 0
+        appearance = (
+            ".notification-center { background-image: none; "
+            f"background-color: rgba(31,31,31,{opacity:.2f}); "
+            f"border-radius: {radius}px; }}"
+        )
+        self._css_provider.load_from_data(CSS + appearance.encode("utf-8"))
+
+    def _screen_changed(self, *_args) -> None:
+        self._reload_css()
+        self._position_window()
+        self.window.update_input_shape()
+        self.window.queue_draw()
+
     def _build_window(self) -> Gtk.Window:
-        window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+        window = PanelWindow()
+        window.corner_radius = self.config.corner_radius
         window.set_title("Notification Center")
         window.set_decorated(False)
         window.set_keep_above(True)
@@ -292,6 +323,9 @@ class TrayApplication:
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.get_style_context().add_class("center-header")
         title = _label("Notification Center", "center-title")
+        title.set_ellipsize(3)
+        title.set_width_chars(1)
+        title.set_max_width_chars(1)
         header.pack_start(title, True, True, 0)
         clear = Gtk.Button(label="Clear all")
         clear.set_relief(Gtk.ReliefStyle.NONE)
@@ -306,6 +340,7 @@ class TrayApplication:
         root.pack_start(header, False, False, 0)
 
         scroller = Gtk.ScrolledWindow()
+        self.scroller = scroller
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.groups_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self.groups_box.get_style_context().add_class("groups")
@@ -356,15 +391,12 @@ class TrayApplication:
         if monitor is None:
             return
         workarea = monitor.get_workarea()
-        height = min(
-            self.config.panel_height,
-            max(250, workarea.height - self.config.margin_top - 16),
-        )
-        self.window.set_size_request(self.config.panel_width, height)
-        x = workarea.x + workarea.width - self.config.panel_width
-        x -= self.config.margin_right
-        y = workarea.y + self.config.margin_top
-        self.window.move(max(workarea.x, x), y)
+        x, y, width, height = panel_geometry(self.config, (
+            workarea.x, workarea.y, workarea.width, workarea.height,
+        ))
+        self.window.set_size_request(width, height)
+        self.window.resize(width, height)
+        self.window.move(x, y)
 
     def toggle_center(self, *_args) -> None:
         if self.window.get_visible():
@@ -399,6 +431,12 @@ class TrayApplication:
     def refresh(self) -> bool:
         self.actions.reset()
         self.unread = self.history.unread_count()
+        group_state = {
+            child.notifications[0].app_name: (child.expanded, child.visible_count)
+            for child in self.groups_box.get_children()
+            if isinstance(child, GroupCard)
+        }
+        scroll_position = self.scroller.get_vadjustment().get_value()
         for child in self.groups_box.get_children():
             self.groups_box.remove(child)
         groups = self.history.grouped()
@@ -415,15 +453,37 @@ class TrayApplication:
                     self._can_perform_action,
                     self._perform_action,
                     self.applications,
+                    self.config.show_icons,
                 )
+                if app_name in group_state:
+                    card.expanded, card.visible_count = group_state[app_name]
+                    card.arrow.set_text("▾" if card.expanded else "▸")
+                    card._render_messages()
                 self.groups_box.pack_start(card, False, False, 0)
         self.groups_box.show_all()
         self._update_tray_icon()
+        if self.window.get_visible():
+            GLib.idle_add(self._restore_scroll, scroll_position)
+        return False
+
+    def _restore_scroll(self, position: float) -> bool:
+        if self.window.get_visible():
+            self.scroller.get_vadjustment().set_value(position)
         return False
 
     def notification_received(self) -> bool:
         # Arrivals while open stay unread until the next explicit opening.
-        self.refresh()
+        self.unread = self.history.unread_count()
+        self._update_tray_icon()
+        if self.window.get_visible() and self._refresh_source is None:
+            # A burst needs one visible rebuild, not a window scan per message.
+            self._refresh_source = GLib.idle_add(self._refresh_visible)
+        return False
+
+    def _refresh_visible(self) -> bool:
+        self._refresh_source = None
+        if self.window.get_visible():
+            self.refresh()
         return False
 
     def _show_menu(
@@ -505,21 +565,23 @@ class TrayApplication:
         self.refresh()
 
     def _show_settings(self, _item: Gtk.MenuItem) -> None:
-        exists = self.config_path.is_file()
-        dialog = Gtk.MessageDialog(
-            transient_for=self.window,
-            modal=True,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.CLOSE,
-            text="Dunst Tray settings",
+        if self.settings_dialog is not None:
+            self.settings_dialog.present()
+            return
+        self.settings_dialog = AppearanceDialog(
+            self.window, self.config, self._apply_appearance,
+            lambda: setattr(self, "settings_dialog", None),
         )
-        detail = str(self.config_path)
-        if not exists:
-            detail += "\n\nThe file does not exist; built-in defaults are active."
-        detail += "\n\nRestart Dunst Tray after editing the file."
-        dialog.format_secondary_text(detail)
-        dialog.run()
-        dialog.destroy()
+
+    def _apply_appearance(self, draft):
+        self.config = save_appearance(draft, self.config_path)
+        self.window.corner_radius = self.config.corner_radius
+        self._reload_css()
+        self._position_window()
+        self.refresh()
+        self.window.update_input_shape()
+        self.window.queue_draw()
+        return self.config
 
     def _error(self, title: str, detail: str) -> None:
         dialog = Gtk.MessageDialog(
@@ -534,8 +596,18 @@ class TrayApplication:
         dialog.destroy()
 
     def destroy(self) -> None:
+        if self._refresh_source is not None:
+            GLib.source_remove(self._refresh_source)
+            self._refresh_source = None
+        if self.settings_dialog is not None:
+            self.settings_dialog.destroy()
+        for screen, signal_id in self._screen_signals:
+            screen.disconnect(signal_id)
         for settings, signal_id in self._theme_signals:
             settings.disconnect(signal_id)
         self.status_icon.set_visible(False)
         self.window.destroy()
+        screen = Gdk.Screen.get_default()
+        if screen:
+            Gtk.StyleContext.remove_provider_for_screen(screen, self._css_provider)
 

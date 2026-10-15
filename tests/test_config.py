@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
-from dunst_tray.config import AppConfig, load_config
+from dunst_tray.config import AppConfig, load_config, panel_geometry, save_appearance
 
 
 class ConfigTests(unittest.TestCase):
@@ -34,8 +35,8 @@ monitor_dbus = false
 
         self.assertEqual(config.history_limit, 10)
         self.assertEqual(config.page_size, 12)
-        self.assertEqual(config.panel_width, 900)
-        self.assertEqual(config.panel_height, 250)
+        self.assertEqual(config.panel_width, 550)
+        self.assertEqual(config.panel_height, 300)
         self.assertEqual(config.margin_top, 72)
         self.assertEqual(config.margin_right, 22)
         self.assertFalse(config.monitor_dbus)
@@ -56,6 +57,52 @@ monitor_dbus = perhaps
 
         self.assertEqual(config.history_limit, 100)
         self.assertTrue(config.monitor_dbus)
+
+    def test_appearance_persistence_preserves_unrelated_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.ini"
+            path.write_text(
+                "[history]\nlimit=250\n[capture]\nmonitor_dbus=false\n"
+                "[panel]\nmargin_top=32\n[custom]\nvalue=keep-me\n",
+                encoding="utf-8",
+            )
+            config = replace(load_config(path), panel_opacity=65,
+                             panel_width=320, panel_height=450,
+                             corner_radius=20, show_icons=False)
+            saved = save_appearance(config, path)
+            self.assertEqual(saved, config)
+            self.assertEqual(load_config(path), config)
+            self.assertIn("keep-me", path.read_text())
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(path.parent.glob(".config-*")), [])
+
+    def test_appearance_bounds_invalid_values_and_malformed_save(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.ini"
+            path.write_text(
+                "[panel]\nopacity=2\ncorner_radius=999\nshow_icons=perhaps\n",
+                encoding="utf-8",
+            )
+            config = load_config(path)
+            self.assertEqual(config.panel_opacity, 50)
+            self.assertEqual(config.corner_radius, 24)
+            self.assertTrue(config.show_icons)
+            path.write_text("malformed configuration", encoding="utf-8")
+            with self.assertRaises(Exception):
+                save_appearance(AppConfig(), path)
+            self.assertEqual(path.read_text(), "malformed configuration")
+
+    def test_panel_geometry_stays_inside_small_and_offset_monitors(self):
+        for workarea in ((0, 24, 1440, 820), (-800, 50, 800, 600),
+                         (0, 0, 240, 180), (0, 0, 1, 1)):
+            x, y, width, height = panel_geometry(
+                replace(AppConfig(), panel_width=550, panel_height=850), workarea
+            )
+            left, top, available_width, available_height = workarea
+            self.assertGreaterEqual(x, left)
+            self.assertGreaterEqual(y, top)
+            self.assertLessEqual(x + width, left + available_width)
+            self.assertLessEqual(y + height, top + available_height)
 
 
 if __name__ == "__main__":
