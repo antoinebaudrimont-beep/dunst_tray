@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dunst-tray"
+version = "0.1.0.dev0"
+description = "A lightweight GTK3 tray and grouped notification center for Dunst"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "dunst-tray contributors" }]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: X11 Applications :: GTK",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Desktop Environment",
+]
+dependencies = []
+
+[project.scripts]
+dunst-tray = "dunst_tray.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+

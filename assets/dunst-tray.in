@@ -1,0 +1,4 @@
+#!/bin/sh
+export PYTHONPATH="@APPDIR@/src${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 -m dunst_tray "$@"
+

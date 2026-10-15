@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Dunst Tray
+Comment=Notification tray and grouped history for Dunst
+Exec=@BINDIR@/dunst-tray
+TryExec=@BINDIR@/dunst-tray
+Icon=preferences-system-notifications-symbolic
+Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=XFCE;i3;
+
