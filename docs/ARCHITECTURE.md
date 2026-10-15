@@ -71,7 +71,7 @@ Walite exposes a durable application-level fallback: its running X11 window has
 a randomized `_WALITE_NOTIFICATION_<token>` property whose string value repeats
 the same token. `activation.py` enumerates top-level windows, validates this
 name/value pair strictly, requires exactly one match, and raises it by numeric
-window ID. This makes every retained Walite **Open** control useful without
+window ID. This makes every retained Walite **Show app** control useful without
 executing saved notification text or guessing by window title. The historical
 record does not contain Walite's private chat identifier, so this fallback
 raises the application but does not claim to select the original chat.

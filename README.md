@@ -27,7 +27,7 @@ mouse behavior still need a manual desktop pass; see
   restarts; Do Not Disturb does not change the bell or unread state.
 - Left click opens or hides a compact top-right notification center.
 - Right-click menu for Do Not Disturb, opening the center, replaying the latest
-  Dunst notification, clearing history, settings information, and quitting.
+  Dunst notification, clearing history, appearance settings, and quitting.
 - Notifications grouped by application without deleting collapsed messages.
 - Five messages shown initially per expanded group; “Show older” reveals more.
 - Configurable retention of 100 notifications by default.
@@ -35,7 +35,7 @@ mouse behavior still need a manual desktop pass; see
 - Application icons resolved from notification data or installed desktop
   entries, with a safe symbolic fallback.
 - Graphical panel appearance settings for opacity, size, corners, and icons.
-- Durable **Open** controls for every retained Walite notification, using
+- Durable **Show app** controls for every retained Walite notification, using
   Walite's own X11 window marker to raise the running application.
 - Durable application activation for installed desktop applications such as
   ChatGPT, including retained notifications whose popup has expired.
@@ -186,7 +186,7 @@ companion history is captured before that rule is applied.
 
 ## Actions and privacy limitations
 
-- Walite is handled specially. Every retained Walite **Open** control locates
+- Walite is handled specially. Every retained Walite **Show app** control locates
   the sole window carrying Walite's private X11 marker and raises it with
   `wmctrl`. This remains usable after the original Dunst callback expires. A
   saved notification cannot reproduce Walite's original per-chat callback, so
@@ -225,6 +225,17 @@ python3 -m compileall -q src tests
 desktop-file-validate assets/dunst-tray.desktop
 ```
 
+Opt-in GTK checks on an X11 desktop (temporary synthetic history):
+
+```sh
+DUNST_TRAY_GUI_TESTS=1 PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
+
+`scripts/check_live.py` provides the recorded real-Xfce acceptance sequence.
+Read its header before running: stop the normal tray first, and restart it
+afterward. It briefly changes/restores DND, filters out personal notifications,
+uses transient synthetic calls, and disables daemon-history deletion.
+
 Manual notification examples must use synthetic content:
 
 ```sh
@@ -261,8 +272,8 @@ Walite-marked window.
 desktop file's ID or `StartupWMClass` matches its X11 class. Ambiguous windows
 produce a visible error. Restart the tray after installing new desktop entries.
 
-**Stale non-Walite Open button:** the originating process or Dunst history no
-longer holds that action. This does not affect the saved message text.
+Reopen the center to refresh a disabled target after starting or closing an
+application window. Target availability is event-driven rather than polled.
 
 ## Uninstall and rollback
 

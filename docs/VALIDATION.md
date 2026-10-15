@@ -16,7 +16,7 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
   corners, icons, history length 100, and the Walite stack tag.
 - The actual Dunst configuration was not edited.
 
-## Executed automated checks
+## Earlier implementation checks (through 47f79f1)
 
 - 22 unit tests passed for configuration parsing/bounds, Dunst controls,
   retention, grouping, duplicate preservation, Dunst-ID updates, clearing,
@@ -87,4 +87,59 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
 These items require further user-session interaction and are not reported as
 passing.
+
+## Resumable improvements acceptance — 2026-10-15
+
+Baseline `47f79f1` was inspected and all 22 original tests rerun. Its deployed
+UI, resolver, and activation files matched the repository. The existing
+ChatGPT/Walite fixes were verified, not reimplemented.
+
+- Full regression: **37 tests passed**, including 29 pure tests and 8 opt-in
+  GTK/X11 tests. Default discovery runs the 29 pure checks and skips 8 GTK checks.
+- Source compilation, shell syntax, desktop entry validation, and diff
+  whitespace checks passed. No runtime database, log, or personal screenshot is
+  tracked. Synthetic preview captures were outside the repository.
+- GTK checks cover theme/absolute PNG/deleted-path/desktop/fallback icons,
+  synthetic future-aerc metadata, clean/dotted bell rendering at 16/22/24/32,
+  read/DND/window lifecycle, settings Apply/Cancel/Defaults, atomic persistence,
+  icon-spacing reclamation, group expansion/paging, and actual 280×300 geometry.
+- A composited GTK surface at opacity 50/radius 24 had transparent corner alpha
+  0 and interior background alpha approximately 128; text remained opaque.
+- Window-only synthetic previews of settings and the panel were visually
+  inspected. Light/dark sample-background bell previews passed visual review.
+  The user's actual light-panel configuration was not changed or tested.
+
+Live `scripts/check_live.py` sequence passed on the real Xfce tray and Dunst:
+
+1. XEmbed bell embedded with zero unread, then one real synthetic Notify call
+   changed the bell to the dotted variant.
+2. Physical X11 bell clicks opened/closed the center. Opening acknowledged the
+   retained snapshot; a new arrival while open stayed unread until reopening.
+3. Twenty actual Walite Notify calls were independently captured during actual
+   DND. Unread count was 20 and the image was identical to the one-message dot.
+4. Reconstructing the tray/store restored the unread state.
+5. Physical settings Apply/Cancel clicks saved appearance and retained history
+   and unread state. Reconstructing again restored width 320, opacity 70 and
+   hidden icons.
+6. Physical **Show app** clicks raised the actual ChatGPT, Task Manager, and
+   Walite windows; `_NET_ACTIVE_WINDOW` confirmed each exact target. The center
+   hid after each successful click. This tests focus, not exact-message
+   navigation or invocation of a private original callback.
+7. Clearing the temporary companion history reset unread and left the bell
+   running. **Dunst history deletion was deliberately disabled in the test**;
+   no real user history was erased. Synthetic notifications were transient and
+   cleanup closed only IDs returned by the test's own Notify calls.
+8. Dunst's owner stayed `:1.44`. Original pause level 0 and original focus were
+   restored. The installed old tray was stopped during fixture generation,
+   then restarted, so it did not capture synthetic test history.
+
+An initial automatic approval rejection flagged potential daemon-history
+deletion. The test was changed to make its daemon-clear operation an explicit
+no-op and to remove all daemon-history deletion calls before the approved run.
+
+UNVERIFIED: reboot/login autostart, i3 tray/geometry, actual light-Xfce-panel
+configuration, live compositor-off rendering, live resolution/monitor hotplug,
+session-bus disconnection, long-duration resource behavior, real aerc
+notification integration, native private message callbacks, and deletion of real
+Dunst history. These were not inferred from fixture success.
 

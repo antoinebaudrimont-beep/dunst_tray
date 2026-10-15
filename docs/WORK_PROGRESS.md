@@ -1,7 +1,7 @@
 # Work progress — resumable implementation
 
-Updated: 2026-10-15 10:17 CEST (Europe/Vienna).
-Branch: `main`. HEAD before phase D commit: `e644294`.
+Updated: 2026-10-15 10:24 CEST (Europe/Vienna).
+Branch: `main`. HEAD before acceptance checkpoint: `2a315b7`.
 Initial implementation baseline: `47f79f1`.
 Working tree was clean. No remote, publication, or release operation is planned.
 
@@ -27,7 +27,8 @@ Working tree was clean. No remote, publication, or release operation is planned.
 1. A/B: focused action/icon audit and synthetic future-aerc coverage — COMPLETE.
 2. C: persistent unread state; theme bell with a single white dot — COMPLETE.
 3. D: graphical panel settings and atomic persistence — COMPLETE.
-4. E/F: full regression, isolated live X11 acceptance, install/restart — NEXT.
+4. E/F: full regression and isolated live X11 acceptance — COMPLETE.
+5. Install/restart and final checkpoint — NEXT.
 
 ## Live evidence for this continuation
 
@@ -102,11 +103,32 @@ git log -5 --oneline
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Run the full suite with GUI enabled, then a short isolated live passive-capture
-acceptance with actual Dunst and Xfce tray: zero/one/20 unread, opening/closing,
-DND, restart persistence, real mouse activation, settings repaint/persistence,
-clear without clearing user Dunst history. Stop the installed old tray during
-synthetic capture so it cannot retain fixtures. Clean only known synthetic
-Dunst IDs. Preserve/restore the user's pause level and focus. Then install and
-restart the validated build, compare installed files, verify the running PID,
-record exact results and remaining manual gaps, and commit the final checkpoint.
+Install the validated source with `./scripts/install.sh`, identify the actual
+running tray PID from its X11 window and instance-lock holder, stop only that
+PID, and launch `~/.local/bin/dunst-tray`. Compare all installed Python files
+with source, verify a new running PID and XEmbed bell, preserved config/backup,
+and unread schema/count without exposing notification text. Update this file
+and commit the final deployment record. No push/tag/reboot.
+
+## Final acceptance completed before deployment
+
+- Phase D commit: `2a315b7`. All 37 tests passed with GUI enabled; no skips.
+- Added reusable `scripts/check_live.py`. Actual Xfce/Dunst acceptance passed:
+  clean/one/20 unread, physical bell toggle, arrivals while open, actual DND,
+  unread restoration, physical appearance Apply/Cancel, appearance restoration,
+  physical Show app for ChatGPT/Task Manager/Walite with exact active-window
+  confirmation, local history clear, and persistent bell.
+- Dunst owner remained `:1.44`; pause level restored to 0; original focus
+  restored. No Dunst configuration was edited. Installed config still compares
+  byte-for-byte with the saved backup.
+- Auto-review initially rejected potential daemon-history deletion. Safer
+  script now makes the daemon clear method an explicit no-op and issues no
+  daemon-history-delete command. Only own transient Notify IDs are closed.
+  The revised run was approved and passed. User Dunst history was not cleared.
+- The old installed tray was stopped during synthetic calls and restored as
+  PID 48984 afterward. Installed code is still the old baseline until the next
+  deployment step. Temporary test history was deleted by the script.
+- Exact outcomes and honest UNVERIFIED checks are in `docs/VALIDATION.md`.
+  In particular: no reboot/login/i3/light-panel/compositor-off/hotplug claim;
+  aerc remains a synthetic future-compatibility fixture, and **Show app** is
+  application focus rather than a private exact-message callback.
