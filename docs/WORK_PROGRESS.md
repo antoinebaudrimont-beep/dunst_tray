@@ -3,7 +3,8 @@
 Updated: 2026-10-15 10:26 CEST (Europe/Vienna).
 Branch: `main`. HEAD before final deployment record: `851cf9f`.
 Initial implementation baseline: `47f79f1`.
-Working tree was clean. No remote, publication, or release operation is planned.
+Working tree was clean at implementation completion. A subsequent explicit
+request authorizes GitHub publication; see the publication checkpoint below.
 
 ## Baseline verified
 
@@ -99,7 +100,7 @@ Phase C commit: `e644294`.
 ## Exact next steps
 
 ```sh
-cd /home/nupnus/Documents/Codex/2026-10-15/files-pasted-by-the-user-project/dunst-tray
+cd /path/to/dunst_tray
 git status --short
 git log -5 --oneline
 PYTHONPATH=src python3 -m unittest discover -s tests -v
@@ -111,7 +112,37 @@ Do not redo completed ChatGPT/Walite work or rerun disruptive live acceptance
 unless a new change justifies it. Remaining optional manual acceptance is
 listed as UNVERIFIED in docs/VALIDATION.md: login/reboot, i3, actual light panel,
 compositor-off, monitor hotplug, real aerc notifications, and long-duration use.
-No remote, push, tag, or reboot is authorized by this work.
+The subsequent publication request authorizes creating a public GitHub remote
+and pushing the existing history. No release tag or reboot is requested.
+
+## Publication preparation — 2026-10-15
+
+- Confirmed implementation baseline `e9c6daf`; existing commits are preserved.
+- GitHub CLI is installed and authenticated as `antoinebaudrimont-beep` when
+  run with network access. The public destination `dunst_tray` does not yet
+  exist; this checkout has no remote. No repository has been created or pushed.
+- All 37 tests reran successfully with GTK enabled: 29 pure and 8 GTK checks.
+  Compilation, installer/uninstaller shell syntax, desktop entry validation,
+  and diff whitespace checks also passed. Live desktop acceptance remains the
+  previously recorded run, not a new publication-time claim.
+- Reworked README for public installation, usage, settings, unread semantics,
+  compatibility, testing, privacy, uninstall, and the existing MIT license.
+  No screenshots are included rather than publishing personal message images.
+- Expanded ignores for SQLite sidecars, local config backups, environment
+  files and credentials. Removed the machine-specific checkout path from the
+  current checkpoint. Source code, local settings and notification history
+  have not been changed by this publication pass.
+- Historical audit scanned all 97 existing file blobs. No tested private-key,
+  GitHub-token, AWS-key patterns, or known real notification text were found.
+  Older WORK_PROGRESS versions contain a local home-directory path; preserving
+  history retains those versions. Existing commits also retain their original
+  author name/email. Resolve that privacy detail before pushing.
+- README rendered successfully both locally and through GitHub's Markdown
+  API: 15 headings, 2 tables, no broken local links. Complete diff reviewed;
+  source/scripts/tests/assets/license/package/CI are unchanged.
+- Publication changes are ready to commit. Then create/push/verify the public
+  destination after resolving the historical metadata privacy detail. Do not
+  force-push or rewrite existing commits.
 
 ## Final acceptance completed before deployment
 

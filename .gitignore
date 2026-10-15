@@ -15,6 +15,13 @@ dist/
 *.db
 *.db-wal
 *.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+*.db-journal
 crash-*.txt
 *~
 *.swp
@@ -25,4 +32,19 @@ crash-*.txt
 history/
 runtime/
 local-config/
+
+# Personal settings and credentials are not publication artifacts.
+config.ini
+config.ini.*
+*.local.ini
+.env
+.env.*
+!.env.example
+.credentials/
+.secrets/
+credentials.json
+*.pem
+*.key
+id_rsa
+id_ed25519
 

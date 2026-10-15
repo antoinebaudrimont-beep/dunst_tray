@@ -1,95 +1,142 @@
-# dunst-tray
+# dunst_tray
 
-`dunst-tray` is a lightweight GTK3 system-tray bell and grouped notification
-center for Dunst on X11. Dunst remains the only notification daemon and keeps
-rendering popups; this companion passively observes notification calls and
-retains a separate, bounded history.
+A lightweight system-tray bell and persistent notification center for **Dunst
+on Linux/X11**.
 
-The initial target is MX Linux 25.x / Debian 13 (Trixie), Xfce, and i3 on X11.
-It uses Python, PyGObject, SQLite from the standard library, and no polling loop,
-web server, browser runtime, or second notification daemon.
+Keep Dunst's popups and add a place to review notifications later. `dunst_tray`
+passively observes notification calls, stores a bounded local history, and
+groups messages by application. Dunst remains the sole notification daemon.
 
-> Screenshot placeholder: add a sanitized notification-center image before a
-> public release. Never use real notification text in project screenshots.
+Built with Python, GTK3, and SQLite, with event-driven updates and no polling
+loop, web server, or browser runtime.
 
-## Status
-
-This repository is pre-release (`0.1.0.dev0`). The backend, tray, grouped
-history, Dunst controls, installer, and automated tests are functional. Xfce
-live integration and the principal mouse paths have been tested on the target
-machine. i3 and login/autostart still need a manual desktop pass; see
-[`docs/VALIDATION.md`](docs/VALIDATION.md).
+**Status:** pre-release (`0.1.0.dev0`). Verified on MX Linux / Debian Trixie with
+Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
 
 ## Features
 
-- Persistent `Gtk.StatusIcon` bell for XEmbed-compatible Xfce/i3 trays.
-- A single white dot indicates unread retained notifications and survives tray
-  restarts; Do Not Disturb does not change the bell or unread state.
-- Left click opens or hides a compact top-right notification center.
-- Right-click menu for Do Not Disturb, opening the center, replaying the latest
-  Dunst notification, clearing history, appearance settings, and quitting.
-- Notifications grouped by application without deleting collapsed messages.
-- Five messages shown initially per expanded group; “Show older” reveals more.
-- Configurable retention of 100 notifications by default.
-- Private SQLite persistence across tray and Dunst restarts.
-- Application icons resolved from notification data or installed desktop
-  entries, with a safe symbolic fallback.
-- Graphical panel appearance settings for opacity, size, corners, and icons.
-- Durable **Show app** controls for every retained Walite notification, using
-  Walite's own X11 window marker to raise the running application.
-- Durable application activation for installed desktop applications such as
-  ChatGPT, including retained notifications whose popup has expired.
-- Event-driven D-Bus capture and zero measured CPU use while idle in a
-  three-second sample on the target machine.
+- Persistent tray bell with **one white dot** when retained notifications are
+  unread. No badge count or exclamation mark.
+- Notification history and unread state survive application restarts.
+- A notification center with per-application groups, expand/collapse, scrolling,
+  and incremental access to older messages.
+- Independent retention of notification calls, including messages that Dunst
+  replaces or combines into a single popup. Default retention: 100 messages.
+- Do Not Disturb controls, replay through Dunst, and confirmed history clearing.
+- **Show app** focuses a verified running application window. Tested with
+  ChatGPT, Walite, and Xfce Task Manager.
+- Application icons from notification data, icon themes, or installed desktop
+  entries, with a fallback when an icon is unavailable.
+- Graphical appearance settings for background opacity, width, height, corner
+  radius, and application-icon visibility.
+- **Apply**, **Cancel**, and **Restore Defaults**, with saved preferences and
+  immediate appearance updates.
 
-## Dependencies
+## Screenshots
 
-Install repository packages on Debian/MX Linux:
+Screenshots are not included in this public snapshot. Desktop validation used
+synthetic notifications; personal notification contents are not included in
+the repository. Any future screenshots should also use synthetic content.
+
+## Requirements
+
+- Linux with **X11**, Python **3.11+**, GTK3, PyGObject, and Pycairo.
+- A running **Dunst** instance, including its `dunstctl` command.
+- `wmctrl` and `xprop` for verified application-window focusing.
+- A session D-Bus that permits same-user notification monitoring through
+  `org.freedesktop.DBus.Monitoring.BecomeMonitor`.
+- An **XEmbed system tray**, such as Xfce's Notification Area. i3 needs an
+  XEmbed-capable tray configuration; its integration remains unverified.
+- An X11 compositor for translucent backgrounds and rounded clipping. Without
+  one, the center uses an opaque rectangular surface.
+
+SQLite is provided by Python's standard library. Wayland is not supported.
+
+## Installation
+
+Install system dependencies on Debian / MX Linux:
 
 ```sh
-sudo apt install dunst python3 python3-gi python3-cairo python3-gi-cairo gir1.2-gtk-3.0 wmctrl x11-utils
+sudo apt install git dunst python3 python3-gi python3-cairo \
+  python3-gi-cairo gir1.2-gtk-3.0 wmctrl x11-utils
 ```
 
-`dunstctl` is included with Dunst. `notify-send` from `libnotify-bin` is useful
-for manual testing but is not required at runtime.
-
-Required runtime conditions:
-
-- An X11 session.
-- A running Dunst notification daemon.
-- A session D-Bus that permits the same user to call
-  `org.freedesktop.DBus.Monitoring.BecomeMonitor`.
-- An XEmbed system tray. Xfce's Notification Area works; i3 needs a configured
-  `bar { tray_output ... }` or another compatible tray.
-
-## Install
-
-The installer only writes inside the current user's home directory. It does not
-edit, stop, disable, or replace Dunst.
+Clone and install as your normal user:
 
 ```sh
-git clone /path/to/dunst-tray
-cd dunst-tray
+git clone https://github.com/antoinebaudrimont-beep/dunst_tray.git
+cd dunst_tray
 ./scripts/install.sh
 ~/.local/bin/dunst-tray
 ```
 
-Installed layout:
+The installer needs no root privileges. It installs the application and creates
+a desktop autostart entry for the current user. It preserves existing config
+and history and does not edit, start, stop, or replace Dunst. Keep your existing
+Dunst session setup running.
 
-```text
-~/.local/opt/dunst-tray/             application files
-~/.local/bin/dunst-tray              launcher
-~/.config/dunst-tray/config.ini      user configuration
-~/.local/share/dunst-tray/           private history database
-~/.config/autostart/dunst-tray.desktop
-```
+| Default location | Purpose |
+| --- | --- |
+| `~/.local/opt/dunst-tray/` | Application files |
+| `~/.local/bin/dunst-tray` | Launcher |
+| `~/.config/dunst-tray/config.ini` | Preferences |
+| `~/.local/share/dunst-tray/history.sqlite3` | Private notification history |
+| `~/.config/autostart/dunst-tray.desktop` | Desktop autostart entry |
 
-Log out and back in to exercise autostart, or launch the command directly. A
-single-instance lock prevents accidental duplicate monitors.
+Config, data, and autostart paths honor `XDG_CONFIG_HOME` / `XDG_DATA_HOME` when
+set. The launcher and application directory stay under `~/.local`.
 
-## Configuration
+Autostart is configured by installation, but a real logout/login or reboot
+cycle has **not yet been verified**. A single-instance lock prevents duplicate
+tray processes. To update, quit the running tray, pull changes, rerun the
+installer, and start the launcher again.
 
-The default `~/.config/dunst-tray/config.ini` is:
+## Usage
+
+- **Left-click the bell:** open or close the notification center.
+- **Right-click the bell:** open controls for notifications, replay, history,
+  Settings, and quitting the tray application.
+- **Notifications enabled:** uncheck to enable DND; check to resume Dunst.
+  Notifications captured during DND still count as unread.
+- **Application group header:** expand or collapse its messages. Messages are
+  newest first; **Show older** reveals more without deleting retained text.
+- **Show app:** raise the running application's window. This does not open a
+  particular message or start another application process.
+- **Clear notification history:** after confirmation, clear the companion's
+  retained history and Dunst's history. This resets unread state.
+
+### Unread behavior
+
+Opening the center acknowledges all currently retained messages and removes
+the dot. Messages arriving while the center is open remain unread until the
+next explicit opening. Closing alone does not acknowledge them. Unread state
+persists across tray restarts and is independent of DND and total history size.
+Existing history from before the unread feature migrates as read.
+
+### Appearance settings
+
+Open **Settings** from the tray menu:
+
+| Setting | Range |
+| --- | --- |
+| Background opacity | 50–100% |
+| Width | 280–550 px |
+| Height | 300–850 px |
+| Corner radius | 0–24 px |
+| Show application icons | On / off; disabling reclaims icon spacing |
+
+The panel fits the monitor's usable work area. Opacity affects the background
+while text stays readable. These controls affect the notification center, not
+Dunst's popups.
+
+**Apply** saves and repaints immediately. **Cancel** discards unsaved edits;
+changes already applied remain saved. **Restore Defaults** fills the controls
+and takes effect only after Apply. Appearance changes do not clear history or
+require a Dunst restart.
+
+### Configuration file
+
+Default preferences:
 
 ```ini
 [history]
@@ -109,203 +156,98 @@ margin_right = 16
 monitor_dbus = true
 ```
 
-Use **Settings** in the tray menu to change appearance immediately. The dialog
-offers opacity 50–100%, width 280–550 px, height 300–850 px, corner radius
-0–24 px, and application-icon visibility. **Apply** saves and repaints;
-**Cancel** discards edits since the last Apply. **Restore Defaults** fills the
-controls without saving until Apply. Size is fitted to the monitor work area.
-Opacity affects the background, keeping text readable; opacity and rounded
-clipping require an X11 compositor. Without one the panel is opaque and square.
-Restart the tray only after manually editing the configuration file.
-The database directory is mode `0700` and the database is mode `0600`. Only
-display-relevant fields, action identifiers, and the `desktop-entry` application
-identity are saved; sender PID and arbitrary D-Bus hints are not persisted.
+Restart the tray after manual file edits. The appearance dialog saves its
+options atomically while preserving unrelated settings.
 
-## Controls
+## Compatibility and limitations
 
-- **Left click bell:** show or hide the notification center.
-- **Right click bell:** open the control menu.
-- **Notifications enabled:** uncheck to pause Dunst (Do Not Disturb); check to
-  resume.
-- **Replay latest:** ask Dunst to pop its latest history entry.
-- **Clear notification history:** after confirmation, clear both the local
-  companion history and Dunst's current history.
-- **Show app (Walite):** raise the currently running, X11-marked Walite window from
-  any retained Walite entry.
-- **Show app (installed desktop applications):** raise the running window identified
-  by its desktop ID or `StartupWMClass`. This includes ChatGPT and works for
-  older retained entries without a live Dunst callback.
-- **Unresolved or ambiguous targets:** the control is disabled and its tooltip
-  explains why. Application focus does not select the original message. The
-  center never invokes an unrelated popup's position-based Dunst callback and
-  never launches another application process.
+Verified desktop behavior includes notification capture, Xfce tray interaction,
+DND, history/unread persistence, appearance persistence, and window focusing
+for ChatGPT, Walite, and Task Manager. Details and actual evidence are in the
+[validation record](docs/VALIDATION.md).
 
-Messages inside each application group are newest first. The complete original
-summary and body strings remain stored even while the group is collapsed.
+- **Show app is application focus, not message navigation.** It appears for
+  notifications advertising a default action and is enabled only for a reliable
+  single running window. Missing, unknown, or ambiguous targets are disabled
+  with an explanatory tooltip. No window is selected using partial title text.
+- Dunst's original actions are tied to popup position and sender lifetime;
+  saved callbacks cannot safely select a particular historical message. Walite
+  uses its existing X11 marker through an isolated compatibility adapter.
+- D-Bus policy restrictions can prevent passive capture while leaving tray
+  controls usable. The tray never takes ownership of the notification service.
+- Popups, popup stacking, screen position, and visible-popup limits remain
+  Dunst's responsibility. A reference configuration fragment is provided in
+  [docs/dunst-integration.conf](docs/dunst-integration.conf).
+- Reboot/login behavior, i3 integration, and **real aerc notifications** are
+  unverified. The aerc scenario was tested using synthetic fixtures only.
+- Actual light-panel configuration, compositor-off operation, monitor hotplug,
+  session-bus disconnection, and long-duration resource use remain unverified.
 
-Opening the center acknowledges all currently retained messages. New messages
-received while it is open remain unread until the next explicit opening;
-closing alone does not acknowledge them. Clearing history resets unread state.
-Existing history migrates as read on upgrade; new captures start unread.
+## Testing
 
-## How capture works
+The publication check on **2026-10-15** reran all **37 tests successfully**:
+29 pure tests and 8 opt-in GTK/X11 tests.
 
-The application opens a dedicated, monitor-only session-bus connection and
-observes `org.freedesktop.Notifications.Notify` method calls. It never requests
-or owns `org.freedesktop.Notifications`; Dunst remains the sole service owner.
-Each call is stored before Dunst applies popup replacement, duplicate stacking,
-or the Walite stack tag. Method replies are observed to retain Dunst's numeric
-ID for correlation, but Dunst actions are position-based rather than ID-based.
-
-The monitor filter consumes its private copy rather than passing it to Gio's
-normal dispatcher. This follows Gio's filter contract and prevents the monitor
-from generating a false method error. See the
-[Gio `DBusConnection.add_filter` documentation](https://docs.gtk.org/gio/method.DBusConnection.add_filter.html)
-and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Dunst integration and popup limits
-
-The existing Dunst configuration does not need to change when it already has a
-top-right origin, bounded width/height, rounded corners, icons, and a small
-`notification_limit`. A reference fragment is in
-[`docs/dunst-integration.conf`](docs/dunst-integration.conf).
-
-Dunst 1.12.2 can limit the number displayed and indicate hidden notifications.
-It can stack duplicates and apply a fixed stack tag, as used for Walite. It does
-not provide the requested dynamic policy “show one through five individually,
-then replace them with an expandable sixth popup.” The reliable approximation
-is:
-
-1. Dunst shows at most the configured number of top-right cards.
-2. `indicate_hidden = yes` indicates overflow.
-3. Walite's stack tag prevents its popups from flooding the screen.
-4. `dunst-tray` independently retains every observed call for grouped browsing.
-
-Do not remove Walite's stack tag merely to populate Dunst history. The
-companion history is captured before that rule is applied.
-
-## Actions and privacy limitations
-
-- Walite is handled specially. Every retained Walite **Show app** control locates
-  the sole window carrying Walite's private X11 marker and raises it with
-  `wmctrl`. This remains usable after the original Dunst callback expires. A
-  saved notification cannot reproduce Walite's original per-chat callback, so
-  historical entries raise Walite without promising exact chat selection.
-- Installed application identity also provides a durable fallback for ChatGPT
-  and other desktop apps. The tray checks X11 application classes rather than
-  window titles and requires exactly one matching running window. It raises
-  the application; it does not recreate a notification's private navigation
-  callback or launch an application that has exited. Empty or unavailable
-  notification icons fall back to the installed application's icon, honoring
-  user desktop-file overrides.
-- Original notification actions are D-Bus callbacks, not durable commands.
-  Dunst 1.12.2 addresses them by popup position rather than retained ID. The
-  center therefore offers verified application focusing, labeled **Show app**,
-  rather than replaying callbacks that might now refer to another notification.
-  Unknown, missing, and ambiguous window targets are disabled with a tooltip.
-- Passive monitoring can see notification content from all applications in the
-  user's session. Keep the database private and use Clear or uninstall
-  `--purge` when appropriate.
-- Desktop environments with restrictive D-Bus monitoring policy will leave the
-  tray controls working but disable independent capture; the error is logged to
-  stderr.
-- `Gtk.StatusIcon` is intentionally used for low-overhead X11/XEmbed support. It
-  is not a Wayland status-notifier implementation.
-- Rounded panel corners depend on an active X11 compositor.
-- The appearance dialog atomically saves only panel preferences and preserves
-  unrelated settings. It does not alter Dunst popups or clear notification text.
-
-## Run tests
-
-Pure automated tests do not require a graphical session:
+Run pure tests without a desktop session:
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests -v
-python3 -m compileall -q src tests
-desktop-file-validate assets/dunst-tray.desktop
 ```
 
-Opt-in GTK checks on an X11 desktop (temporary synthetic history):
+This discovers 37 tests, runs 29, and skips the 8 GTK checks. Run all 37 on an
+X11 desktop with the system GTK/Python dependencies installed:
 
 ```sh
 DUNST_TRAY_GUI_TESTS=1 PYTHONPATH=src python3 -m unittest discover -s tests -v
+python3 -m compileall -q src tests
+sh -n scripts/install.sh scripts/uninstall.sh
 ```
 
-`scripts/check_live.py` provides the recorded real-Xfce acceptance sequence.
-Read its header before running: stop the normal tray first, and restart it
-afterward. It briefly changes/restores DND, filters out personal notifications,
-uses transient synthetic calls, and disables daemon-history deletion.
+`desktop-file-validate assets/dunst-tray.desktop` is an additional check when
+`desktop-file-utils` is installed.
 
-Manual notification examples must use synthetic content:
+Automated tests are separate from the recorded **live Xfce acceptance** of real
+capture, tray clicks, DND, 20-message unread behavior, settings, restarts, and
+application focus. That acceptance was completed before this documentation
+publication pass and is not claimed as a fresh live run here.
 
-```sh
-notify-send -a 'Synthetic App' 'Example title' 'Example body'
-for n in 1 2 3 4 5; do
-  notify-send -a 'Synthetic Batch' "Message $n" "Synthetic body $n"
-done
-```
+[`scripts/check_live.py`](scripts/check_live.py) contains the opt-in live
+sequence. Read its header before running: it briefly changes/restores DND and
+requires stopping the normal tray to keep fixtures out of normal history. It
+uses temporary synthetic history, filters personal notifications, and disables
+daemon-history deletion. Restart the normal tray afterward.
 
-The exact executed and outstanding test matrix is documented in
-[`docs/VALIDATION.md`](docs/VALIDATION.md). Tests are never claimed there unless
-they were actually run.
+## Privacy
 
-## Troubleshooting
+Notification contents stay in the local SQLite store. Its directory is mode
+`0700` and the database is mode `0600`. Display fields, action identifiers,
+desktop identity, and read state are retained; arbitrary hints and sender PIDs
+are not. Do not attach private history or real message screenshots to issues.
 
-**No tray icon:** ensure the Xfce Notification Area plugin is present, or enable
-an i3 XEmbed tray. Check that another copy is not already running.
+## Uninstall
 
-**No saved history:** run with `--debug` from a terminal and look for a
-`BecomeMonitor` policy error. Dunst history is not used as a fallback because
-stack tags and replacement can omit the individual calls this project needs.
-
-**Do Not Disturb is disabled in the menu:** verify `dunstctl is-paused` works in
-the same desktop session.
-
-**Icons are missing:** applications should send an absolute readable image path
-or an icon name available in the current theme. The center falls back safely.
-
-**Walite Open reports an error:** ensure Walite is running under X11 and that
-`wmctrl` and `xprop` are installed. The safety check requires exactly one
-Walite-marked window.
-
-**Application Open reports an error:** ensure the application is running and its
-desktop file's ID or `StartupWMClass` matches its X11 class. Ambiguous windows
-produce a visible error. Restart the tray after installing new desktop entries.
-
-Reopen the center to refresh a disabled target after starting or closing an
-application window. Target availability is event-driven rather than polled.
-
-## Uninstall and rollback
-
-Remove the app and autostart entry while preserving settings and history:
+Quit the tray and remove the application and autostart entry while keeping
+preferences and history:
 
 ```sh
 ./scripts/uninstall.sh
 ```
 
-Also permanently remove the private notification database and configuration:
+To also permanently remove preferences and notification history:
 
 ```sh
 ./scripts/uninstall.sh --purge
 ```
 
-No Dunst rollback is normally required because installation does not edit the
-Dunst configuration. If the reference fragment was merged manually, restore
-the backup you created before that manual edit and run `dunstctl reload`.
+Dunst is not removed or reconfigured.
 
-## Contributing
+## Development
 
-Use synthetic notifications in tests, bug reports, logs, and screenshots.
-Never commit a history database. Run the test commands above, keep backend logic
-separate from GTK code, and use Conventional Commit messages.
+See the [architecture](docs/ARCHITECTURE.md),
+[work checkpoint](docs/WORK_PROGRESS.md), and
+[publishing notes](docs/PUBLISHING.md). Use synthetic fixtures and screenshots,
+run relevant tests, and keep changes focused.
 
 ## License
 
-Licensed under the MIT License. See [`LICENSE`](LICENSE).
-
-## Future publication
-
-The repository is local-only. No GitHub repository, remote, release, or tag is
-created. After the remaining manual checks pass, publication can use the
-commands in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
-
+[MIT](LICENSE). The existing license is preserved.
