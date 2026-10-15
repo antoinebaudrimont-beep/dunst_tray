@@ -67,7 +67,7 @@ class NotificationMonitor:
         message: Gio.DBusMessage,
         _incoming: bool,
         _user_data: object,
-    ) -> Gio.DBusMessage:
+    ) -> None:
         try:
             message_type = message.get_message_type()
             if message_type == Gio.DBusMessageType.METHOD_CALL:
@@ -76,7 +76,10 @@ class NotificationMonitor:
                 self._handle_return(message)
         except Exception:
             LOGGER.exception("Ignored malformed notification bus message")
-        return message
+        # A monitor must consume its private copy. Returning the message would
+        # pass it to GDBus's normal object dispatcher, which can emit a bogus
+        # UnknownObject reply and then disconnect the monitor-only connection.
+        return None
 
     def _handle_call(self, message: Gio.DBusMessage) -> None:
         if (
@@ -113,9 +116,13 @@ class NotificationMonitor:
     def stop(self) -> None:
         if self.connection is None:
             return
-        if self.filter_id is not None:
-            self.connection.remove_filter(self.filter_id)
-        self.connection.close_sync(None)
+        try:
+            if self.filter_id is not None:
+                self.connection.remove_filter(self.filter_id)
+            if not self.connection.is_closed():
+                self.connection.close_sync(None)
+        except GLib.Error as error:
+            LOGGER.debug("Monitor connection was already closed: %s", error)
         self.connection = None
         self.filter_id = None
         self._pending.clear()

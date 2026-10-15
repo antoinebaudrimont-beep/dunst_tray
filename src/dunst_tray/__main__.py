@@ -44,12 +44,18 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
 def _acquire_instance_lock() -> IO[str]:
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
     lock_path = runtime / f"dunst-tray-{os.getuid()}.lock"
-    handle = lock_path.open("w", encoding="utf-8")
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(lock_path, flags, 0o600)
+    handle = os.fdopen(descriptor, "r+", encoding="utf-8")
     try:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError as error:
         handle.close()
         raise RuntimeError("dunst-tray is already running") from error
+    handle.seek(0)
+    handle.truncate()
     handle.write(str(os.getpid()))
     handle.flush()
     return handle

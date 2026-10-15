@@ -48,6 +48,8 @@ class DunstController:
     def clear_history(self) -> None:
         self._run("history-clear")
 
-    def perform_action(self, dunst_id: int) -> None:
-        self._run("action", str(dunst_id))
+    def perform_current_action(self) -> None:
+        """Invoke the topmost visible notification's default action."""
+
+        self._run("action", "0")
 

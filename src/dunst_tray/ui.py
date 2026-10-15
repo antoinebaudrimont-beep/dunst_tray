@@ -51,12 +51,16 @@ button { color: #f4f4f4; }
 """
 
 
-def _label(text: str, css_class: str | None = None) -> Gtk.Label:
+def _label(
+    text: str,
+    css_class: str | None = None,
+    selectable: bool = False,
+) -> Gtk.Label:
     label = Gtk.Label(label=text)
     label.set_xalign(0)
     label.set_line_wrap(True)
     label.set_line_wrap_mode(2)
-    label.set_selectable(True)
+    label.set_selectable(selectable)
     if css_class:
         label.get_style_context().add_class(css_class)
     return label
@@ -70,12 +74,14 @@ class GroupCard(Gtk.Box):
         app_name: str,
         notifications: list[Notification],
         page_size: int,
+        actionable_id: int | None,
         action_callback,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("group-card")
         self.notifications = notifications
         self.page_size = page_size
+        self.actionable_id = actionable_id
         self.visible_count = page_size
         self.action_callback = action_callback
         self.expanded = False
@@ -139,14 +145,14 @@ class GroupCard(Gtk.Box):
             message.get_style_context().add_class("message")
             if notification.summary:
                 message.pack_start(
-                    _label(notification.summary, "message-title"),
+                    _label(notification.summary, "message-title", True),
                     False,
                     False,
                     0,
                 )
             if notification.body:
                 message.pack_start(
-                    _label(notification.body, "message-body"),
+                    _label(notification.body, "message-body", True),
                     False,
                     False,
                     0,
@@ -159,10 +165,12 @@ class GroupCard(Gtk.Box):
             if notification.has_default_action:
                 action = Gtk.Button(label="Open")
                 action.set_relief(Gtk.ReliefStyle.NONE)
-                action.set_sensitive(notification.dunst_id is not None)
-                if notification.dunst_id is None:
+                is_current = notification.id == self.actionable_id
+                action.set_sensitive(is_current)
+                if not is_current:
                     action.set_tooltip_text(
-                        "The originating Dunst action is no longer addressable"
+                        "Saved actions are not durable; only the newest live "
+                        "notification can be opened safely"
                     )
                 action.connect(
                     "clicked",
@@ -178,7 +186,10 @@ class GroupCard(Gtk.Box):
             older.set_relief(Gtk.ReliefStyle.NONE)
             older.connect("clicked", self._show_older)
             self.messages.pack_start(older, False, False, 4)
-        self.messages.show_all()
+        # The container has no-show-all so collapsed groups stay collapsed when
+        # the parent window is shown. Explicitly reveal its children here.
+        for child in self.messages.get_children():
+            child.show_all()
         self.messages.set_visible(self.expanded)
 
     def _show_older(self, _button: Gtk.Button) -> None:
@@ -237,7 +248,9 @@ class TrayApplication:
         window.set_skip_pager_hint(True)
         window.set_type_hint(Gdk.WindowTypeHint.UTILITY)
         window.set_resizable(False)
-        window.set_size_request(self.config.panel_width, 250)
+        window.set_size_request(
+            self.config.panel_width, self.config.panel_height
+        )
         window.get_style_context().add_class("notification-center")
         window.connect("delete-event", self._hide_window)
 
@@ -319,7 +332,7 @@ class TrayApplication:
             self.config.panel_height,
             max(250, workarea.height - self.config.margin_top - 16),
         )
-        self.window.resize(self.config.panel_width, height)
+        self.window.set_size_request(self.config.panel_width, height)
         x = workarea.x + workarea.width - self.config.panel_width
         x -= self.config.margin_right
         y = workarea.y + self.config.margin_top
@@ -345,11 +358,14 @@ class TrayApplication:
             empty.set_justify(Gtk.Justification.CENTER)
             self.groups_box.pack_start(empty, False, False, 0)
         else:
+            latest = self.history.latest()
+            actionable_id = latest.id if latest is not None else None
             for app_name, notifications in groups.items():
                 card = GroupCard(
                     app_name,
                     notifications,
                     self.config.page_size,
+                    actionable_id,
                     self._perform_action,
                 )
                 self.groups_box.pack_start(card, False, False, 0)
@@ -411,10 +427,11 @@ class TrayApplication:
             self._error("Could not replay a notification", str(error))
 
     def _perform_action(self, notification: Notification) -> None:
-        if notification.dunst_id is None:
+        latest = self.history.latest()
+        if latest is None or notification.id != latest.id:
             return
         try:
-            self.dunst.perform_action(notification.dunst_id)
+            self.dunst.perform_current_action()
         except DunstControlError as error:
             self._error(
                 "The original notification action is unavailable", str(error)
