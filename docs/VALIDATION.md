@@ -61,11 +61,27 @@ fixtures from normal history. No real-account client/database was constructed.
 
 ### Deployment
 
-Pending final installed-package verification. The local-only Walite candidate
-is `v1.2.1-local.5ad0b96`; previous code versions and all user data are retained.
-No push, tag or release is authorized or performed.
+- Tray implementation commit **`0721674`** installed with its existing installer.
+  Every installed Python source file matches the committed checkout. All **56
+  tests pass again against the installed package**. Settings hash is unchanged,
+  normal history has zero fixture rows, private storage stays 0700/0600 and DND
+  remains level 0. No Dunst configuration/history was cleared or replaced.
+- Walite commit **`5ad0b96`** built with the existing Linux release flags and
+  installed as **`v1.2.1-local.5ad0b96`** with official PNG, README and MIT license.
+  Copied version/help and byte comparison pass. SHA-256:
+  `f16654f92af7e479bd18d8ae1a2c02d8296bfea5bb22bdce561005f96e2da3ab`.
+- Previous Walite versions remain untouched. The pre-update tray code is kept
+  at `~/.local/opt/dunst-tray-backups/pre-v2-20261015`; the existing launcher can
+  use it through `DUNST_TRAY_APP_DIR`, or reinstall the prior source commit.
+  This is a code-only backup: no private notification/account data is copied.
+- Normal applications are restored in the original terminal. Read-only process
+  inspection verifies the new Walite executable and its unique valid window
+  marker; both apps are live. Desktop focus returned to the conversation.
+  No session/cache/configuration was reset, deleted or re-paired.
+- No push, tag or release was performed. Temporary offline build/fixture folders
+  may be removed; the reproducible fixtures and previous installations remain.
 
-## Walite ticket integration — current task
+## Previous one-shot Walite ticket integration
 
 Implemented and locally installed from tray commit `6a62761`; the follow-up
 validation commit changes only the opt-in harness and documentation. No push,

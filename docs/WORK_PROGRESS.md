@@ -22,11 +22,16 @@
   reconstruction, generic focus independence, draft/modal protection followed
   by successful reuse, server-expiry fault injection and Walite restart with
   old history disabled/new notifications working. No real account or sends.
-- Next: save tray implementation commit, install validated candidates with code
-  backups, restore normal apps and verify installed package/config/history.
-  Never reset/re-pair account data; do not push/tag/release.
+- Deployment COMPLETE: tray `0721674`, Walite `5ad0b96` installed locally as
+  `v1.2.1-local.5ad0b96`, both apps restored and running. Installed tray source
+  matches; all 56 tests pass against installed package. Settings checksum and
+  DND unchanged, private store 0700/0600, zero fixture rows in normal history.
+- Previous Walite versions and a code-only pre-v2 tray snapshot retained.
+  Linked account/session/cache/configuration not reset, deleted or re-paired.
+- Finalize this validation checkpoint locally and remove only disposable test
+  directories. No further restart required. No push/tag/release performed.
 
-## Current task — Walite discussion activation (2026-10-15)
+## Previous task — Walite discussion activation (2026-10-15)
 
 - New request supersedes prior publication authority: **do not push or release**.
   dunst_tray starts clean at `cb89b03` on main. Walite starts clean on
