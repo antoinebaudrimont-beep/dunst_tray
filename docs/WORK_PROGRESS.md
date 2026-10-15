@@ -136,13 +136,14 @@ and pushing the existing history. No release tag or reboot is requested.
   GitHub-token, AWS-key patterns, or known real notification text were found.
   Older WORK_PROGRESS versions contain a local home-directory path; preserving
   history retains those versions. Existing commits also retain their original
-  author name/email. Resolve that privacy detail before pushing.
+  author name/email. The maintainer was informed and subsequently approved
+  publishing with their name under the existing account, preserving history.
 - README rendered successfully both locally and through GitHub's Markdown
   API: 15 headings, 2 tables, no broken local links. Complete diff reviewed;
   source/scripts/tests/assets/license/package/CI are unchanged.
-- Publication changes are ready to commit. Then create/push/verify the public
-  destination after resolving the historical metadata privacy detail. Do not
-  force-push or rewrite existing commits.
+- Publication preparation committed as `d1a7f2b`; historical metadata privacy
+  decision resolved by the maintainer. Next: create/push/verify the public
+  destination, retaining original commits. Do not force-push or rewrite history.
 
 ## Final acceptance completed before deployment
 
