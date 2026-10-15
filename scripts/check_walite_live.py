@@ -39,13 +39,17 @@ class FixtureHistory(SyntheticHistory):
 def click(widget):
     spin(lambda: widget.get_mapped())
     top = widget.get_toplevel()
-    _ok, x, y = widget.translate_coordinates(top, 0, 0)
-    origin = top.get_window().get_origin()
+    for _ in range(8):
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        time.sleep(0.01)
+    x, y = widget.translate_coordinates(top, 0, 0)
     allocation = widget.get_allocation()
     subprocess.run([
-        "xdotool", "mousemove", "--sync",
-        str(origin[-2] + x + allocation.width // 2),
-        str(origin[-1] + y + allocation.height // 2), "click", "1",
+        "xdotool", "mousemove", "--sync", "--window",
+        str(top.get_window().get_xid()),
+        str(x + allocation.width // 2), str(y + allocation.height // 2),
+        "click", "1",
     ], check=True)
 
 
@@ -90,6 +94,12 @@ def run(directory, window):
                 if not tray.window.get_visible():
                     tray.toggle_center()
                 tray.refresh()
+                # Let the capture callback's coalesced refresh finish before
+                # retaining a physical widget reference for the mouse click.
+                for _ in range(8):
+                    while Gtk.events_pending():
+                        Gtk.main_iteration_do(False)
+                    time.sleep(0.01)
                 card = tray.groups_box.get_children()[0]
                 if not card.expanded:
                     card._toggle(None)

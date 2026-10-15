@@ -26,9 +26,24 @@
 - Walite vet, full tests and race tests pass on the exact supplied commit.
   Production binary built with existing Linux release flags; isolated real-TUI
   fixture built from an archive without modifying Walite's clean checkout.
-- Next: commit, install tray, gracefully stop Walite before switching to a new
-  versioned binary+icon installation; restart safely, run synthetic actual-X11
-  navigation and restore normal applications. No push/release.
+- Implementation committed as `6a62761`, tray installed through its existing
+  installer, settings hash unchanged and history migration verified.
+- Walite installed as `v1.2.1-local.77459fd` with official icon/README/license;
+  old v1.2.1 retained. Copied binary verification/version/help pass. Both apps
+  gracefully restarted, isolated for acceptance, then restored; running binary
+  and unique Walite marker verified. DND unchanged. No account data reset.
+- Actual installed-package X11 acceptance COMPLETE: physical generic focus
+  without navigation/consumption, older group and newer direct selection with
+  real rendered-TUI and active-window evidence, draft/modal protection, receiver
+  shutdown disabling, 280px controls, history retained. Zero fixture records in
+  normal history. Final installed-package 50-test suite passes again.
+- Harness corrected for GTK coordinates and queued refresh, full rerun passed.
+  See VALIDATION.md for exact evidence and protocol limits. No real-account
+  conversation or WhatsApp send was tested; no push/release performed.
+- Implementation, deployment and acceptance complete. Save this checkpoint in
+  the validation/harness follow-up commit; leave both repositories clean and
+  all commits local. Normal applications are restored; no further restart is
+  needed. Disposable synthetic build/fixture directories may be removed.
 
 Updated: 2026-10-15 — public GitHub publication verified.
 Branch: `main`. Initial verified public commit: `b602d84`.

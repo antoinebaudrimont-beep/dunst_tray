@@ -3,6 +3,72 @@
 Date: 2026-10-15  
 Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
+## Walite ticket integration — current task
+
+Implemented and locally installed from tray commit `6a62761`; the follow-up
+validation commit changes only the opt-in harness and documentation. No push,
+tag or release was performed.
+
+- All **50 tray tests pass**, both against the source checkout and against the
+  installed package: 39 non-GUI tests (including real Unix sockets) and 11 GTK
+  checks. Existing history/grouping/unread/DND/settings tests remain unchanged
+  except for the targeted new navigation coverage. Compileall, shell syntax,
+  Go fixture formatting and diff whitespace checks pass. Existing deprecated
+  GTK StatusIcon warnings remain; there were no test failures in the final run.
+- Walite's exact supplied commit `77459fd35542c42fb8422b0e5e700506e7e38109`
+  passed `go vet ./...`, `go test ./...` and `go test -race ./...`.
+  Its source checkout remains clean on `fix/notification-chat-navigation`.
+- Tray installed with the existing `scripts/install.sh` into
+  `~/.local/opt/dunst-tray`; source and installed activation module match.
+  Settings hash is unchanged; normal history received the additive migration.
+- Walite rebuilt with the existing Linux release build flags, without running
+  release/publishing tooling, as `v1.2.1-local.77459fd`. Executable, official PNG,
+  README and MIT license installed together in a new versioned directory below
+  `~/.local/opt/walite`; the existing launcher symlink was repointed only after
+  clean shutdown and copied `--version`/`--help`/byte verification. The old
+  `v1.2.1` installation remains intact for rollback. Executable SHA-256:
+  `be37c2ba9fb50ff02137513ba3fe2a2dde5dcd608616ee599d838912197c33df`.
+- Both normal applications were gracefully restarted and the running Walite
+  executable was verified to be the new build. They were briefly stopped again
+  for the isolated acceptance run, then restored in the original terminal.
+  Final processes were live; Walite's validated window marker resolved uniquely.
+  DND remained level 0. No session/cache/configuration data was reset or paired.
+
+### Actual X11 navigation acceptance
+
+Ran `scripts/check_walite_live.py` using the **installed tray package**, a
+temporary filtered history and a real X11 terminal running the production Walite
+notification sender, ticket receiver and TUI from the supplied commit. Only an
+isolated archived source tree contained the opt-in Go fixture. No WhatsApp
+client or database was constructed by the fixture; all chats/content were
+synthetic. The harness's widget-coordinate/queued-refresh handling was corrected
+and the complete final run exited successfully.
+
+- Physical **Show app** click raised the fixture without selecting a different
+  chat or consuming either notification's ticket.
+- Physical **Open discussion** click on the **older group** notification
+  selected/rendered the group body. The newer direct notification independently
+  selected/rendered the direct body. Both also passed `_NET_ACTIVE_WINDOW`
+  checks; these are not merely socket-write assertions.
+- Both independent controls fit the real panel at its minimum 280px width.
+  Notification records remained grouped and retained; explicit panel review
+  acknowledged unread flags as before, and successful attempts removed only
+  their capability, not notification history.
+- A typed, unsent synthetic draft was retained and its original discussion
+  remained selected when another discussion was requested. A settings modal
+  likewise blocked navigation; closing it retained the original discussion.
+- Graceful fixture termination removed its receiver. Its remaining stored
+  navigation control became disabled; history remained and DND was unchanged.
+- Final read-only inspection found **zero fixture rows in normal tray history**.
+  Synthetic popups were transient. The normal tray and updated Walite were
+  restored and desktop focus returned to the conversation.
+
+Not claimed: selecting any private real-account chat, sending any WhatsApp
+message, exact-instance focus with multiple marked terminals, or proving remote
+acceptance/expiry through the intentionally one-way protocol. The latter has no
+acknowledgment; see [documented limits](WALITE.md). Reboot/login and i3 remain
+outside this task's verified desktop matrix.
+
 ## Environment inspection
 
 - Confirmed `DISPLAY=:0.0`, `XDG_SESSION_TYPE=x11`, and Xfce desktop.
