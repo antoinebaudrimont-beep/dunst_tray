@@ -1,7 +1,7 @@
 # Work progress — resumable implementation
 
-Updated: 2026-10-15 10:26 CEST (Europe/Vienna).
-Branch: `main`. HEAD before final deployment record: `851cf9f`.
+Updated: 2026-10-15 — public GitHub publication verified.
+Branch: `main`. Initial verified public commit: `b602d84`.
 Initial implementation baseline: `47f79f1`.
 Working tree was clean at implementation completion. A subsequent explicit
 request authorizes GitHub publication; see the publication checkpoint below.
@@ -142,8 +142,39 @@ and pushing the existing history. No release tag or reboot is requested.
   API: 15 headings, 2 tables, no broken local links. Complete diff reviewed;
   source/scripts/tests/assets/license/package/CI are unchanged.
 - Publication preparation committed as `d1a7f2b`; historical metadata privacy
-  decision resolved by the maintainer. Next: create/push/verify the public
-  destination, retaining original commits. Do not force-push or rewrite history.
+  decision resolved by the maintainer. Public creation, push, and verification
+  are complete; see the publication record below.
+
+## Verified public publication — 2026-10-15
+
+- Repository: https://github.com/antoinebaudrimont-beep/dunst_tray
+- Created PUBLIC through GitHub CLI using the authenticated account, then
+  pushed with ordinary Git. `origin/main` tracks the existing local `main`.
+  No force push, rewritten commits, replacement project, tag, or release.
+- Initial pushed/verified commit:
+  `b602d843a925fcf0586db4ee3482884ac35ba445`. Original baseline `e9c6daf` remains
+  its ancestor. Subsequent publication-record-only commits retain that history.
+- Remote and local main commit IDs matched. All 40 tracked file paths/blob
+  hashes matched GitHub's complete tree, including application source and MIT
+  license. The repository returned HTTP 200 without authentication.
+- GitHub rendered the published README successfully (15 headings, 2 tables).
+  All local documentation links resolved. GitHub Actions completed successfully
+  for the initial push; its existing workflow runs pure checks on Python 3.11
+  and 3.13 and skips opt-in GTK checks.
+- Publication-time local validation: all 37 tests pass with GTK enabled; shell
+  syntax, compilation, desktop entry validation and whitespace checks pass.
+  Earlier live validation remains separately documented and was not rerun.
+- Changed only README.md, .gitignore, docs/PUBLISHING.md, and this checkpoint.
+  Application source, scripts, tests, assets, CI and MIT license are unchanged.
+  Installed settings and local notification history were not modified.
+- Screenshots were omitted rather than exposing real notifications. Current
+  public documentation contains no machine-specific home path. The maintainer
+  explicitly approved preserving existing historical metadata after disclosure.
+- Remaining compatibility gaps are unchanged: reboot/login, i3, real aerc
+  notifications, and the other UNVERIFIED checks in docs/VALIDATION.md.
+- Publication is complete. Resume with `git status`, `git log`, and ordinary
+  non-force updates only when requested; the final handoff supplies the latest
+  verified commit after this publication record is pushed.
 
 ## Final acceptance completed before deployment
 
