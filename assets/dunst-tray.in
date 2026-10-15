@@ -1,4 +1,5 @@
 #!/bin/sh
-export PYTHONPATH="@APPDIR@/src${PYTHONPATH:+:$PYTHONPATH}"
+app_dir="${DUNST_TRAY_APP_DIR:-$HOME/.local/opt/dunst-tray}"
+export PYTHONPATH="$app_dir/src${PYTHONPATH:+:$PYTHONPATH}"
 exec /usr/bin/python3 -m dunst_tray "$@"
 

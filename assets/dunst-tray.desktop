@@ -9,5 +9,4 @@ Icon=preferences-system-notifications-symbolic
 Terminal=false
 Categories=Utility;
 X-GNOME-Autostart-enabled=true
-OnlyShowIn=XFCE;i3;
 
