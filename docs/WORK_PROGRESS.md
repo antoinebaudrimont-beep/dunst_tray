@@ -1,5 +1,35 @@
 # Work progress — resumable implementation
 
+## Current task — Walite discussion activation (2026-10-15)
+
+- New request supersedes prior publication authority: **do not push or release**.
+  dunst_tray starts clean at `cb89b03` on main. Walite starts clean on
+  `fix/notification-chat-navigation` at `77459fd35542c42fb8422b0e5e700506e7e38109`.
+- Read the complete Walite integration contract and installation procedure.
+  Preserve generic Show app and all history/unread/DND/settings behavior.
+- Baseline: 37 discovered dunst_tray tests; 29 pass and 8 GTK tests are skipped
+  in headless discovery. Full GTK and Walite checks will run before deployment.
+- Plan: bounded strict v1 metadata parsing; record-only private capability
+  persistence and migration; owner/permission/symlink/peer-credential-checked
+  Unix socket client; a separate Open discussion control; focused integration
+  tests. Never log/display capabilities or ChatIDs, or use subprocesses for IPC.
+- Protocol limit: no response/acknowledgment exists. Validate/connect/send before
+  focusing so known transport failures cannot steal focus. A written request
+  does not prove server acceptance; Walite may reject expired/replayed tickets
+  or drop navigation while busy. Record actual TUI evidence separately.
+- Then commit dunst_tray changes, install it, build the exact Walite commit,
+  install code+icon in a new versioned directory while retaining rollback,
+  gracefully restart both, and exercise synthetic discussion navigation on X11.
+- Implementation and integration tests complete: all 50 tray tests pass,
+  including 11 GTK tests, native socket validation, migration, claim-once,
+  independent controls and 280px layout. compileall/diff checks pass.
+- Walite vet, full tests and race tests pass on the exact supplied commit.
+  Production binary built with existing Linux release flags; isolated real-TUI
+  fixture built from an archive without modifying Walite's clean checkout.
+- Next: commit, install tray, gracefully stop Walite before switching to a new
+  versioned binary+icon installation; restart safely, run synthetic actual-X11
+  navigation and restore normal applications. No push/release.
+
 Updated: 2026-10-15 — public GitHub publication verified.
 Branch: `main`. Initial verified public commit: `b602d84`.
 Initial implementation baseline: `47f79f1`.

@@ -180,6 +180,114 @@ class TrayStateTests(unittest.TestCase):
         self.assertTrue(card.expanded)
         self.assertEqual(card.visible_count, 10)
 
+    def test_discussion_socket_action_is_separate_private_and_one_shot(self):
+        import json
+        import socket
+        import threading
+        from dunst_tray.walite import parse_activation
+        from test_walite import hint
+        with tempfile.TemporaryDirectory(prefix="walite-activation-") as directory:
+            endpoint = Path(directory) / "s-synthetic.sock"
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                listener.bind(str(endpoint))
+                listener.listen(1)
+                listener.settimeout(1)
+                endpoint.chmod(0o600)
+                received = []
+
+                def receive():
+                    connection, _address = listener.accept()
+                    with connection:
+                        connection.settimeout(1)
+                        data = bytearray()
+                        while True:
+                            block = connection.recv(4096)
+                            if not block:
+                                break
+                            data.extend(block)
+                        received.append(json.loads(bytes(data)))
+
+                item = replace(
+                    notification("walite"),
+                    walite_activation=parse_activation(hint(str(endpoint))),
+                )
+                self.history.add(item)
+                stored = self.history.latest()
+                with patch.object(self.tray.actions, "activate") as generic, \
+                        patch.object(self.tray.walite_navigation, "send") as navigate:
+                    self.tray._perform_action(stored)
+                    generic.assert_called_once_with(stored)
+                    navigate.assert_not_called()
+                    self.assertIsNotNone(self.history.latest().walite_activation)
+                reader = threading.Thread(target=receive)
+                reader.start()
+                with patch.object(self.tray.walite, "find_window", return_value="0x123"), \
+                        patch.object(self.tray.walite, "raise_window") as focus, \
+                        patch.object(self.tray.actions, "availability",
+                                     return_value=(True, "Show application only")):
+                    self.tray.refresh()
+                    card = self.tray.groups_box.get_children()[0]
+                    buttons = [child for child in card.messages.get_children()[0]
+                               .get_children()[-1].get_children()[-1].get_children()
+                               if hasattr(child, "get_label")]
+                    labels = [button.get_label() for button in buttons]
+                    self.assertIn("Show app", labels)
+                    self.assertIn("Open discussion", labels)
+                    self.tray._apply_appearance(replace(
+                        self.tray.config, panel_width=280,
+                    ))
+                    self.tray.toggle_center()
+                    import time
+                    from dunst_tray.ui import Gtk
+                    for _ in range(20):
+                        while Gtk.events_pending():
+                            Gtk.main_iteration_do(False)
+                        time.sleep(0.01)
+                    self.assertEqual(self.tray.window.get_size()[0], 280)
+                    self.tray._open_walite_discussion(stored)
+                    self.tray._open_walite_discussion(stored)
+                    focus.assert_called_once_with("0x123")
+                reader.join(timeout=1)
+                self.assertFalse(reader.is_alive())
+                self.assertEqual(received, [{"version": 1, "activation_id": "a" * 64}])
+                self.assertIsNone(self.history.latest().walite_activation)
+                self.assertEqual(self.history.count(), 1)
+                # The explicit opening acknowledged the retained snapshot.
+                self.assertEqual(self.history.unread_count(), 0)
+
+    def test_discussion_hint_works_without_a_live_default_action(self):
+        from dunst_tray.ui import GroupCard
+        from dunst_tray.walite import parse_activation
+        from test_walite import hint
+        item = replace(notification("walite"), actions=(),
+                       walite_activation=parse_activation(hint()))
+        card = GroupCard(
+            "walite", [item], 5, lambda _item: (False, "No live action"),
+            lambda _item: self.fail("must not invoke generic action"),
+            ApplicationCatalog([]), navigate_callback=lambda _item: None,
+            navigation_availability=lambda _hint: (True, "Private request"),
+        )
+        footer = card.messages.get_children()[0].get_children()[-1]
+        labels = [child.get_label() for child in
+                  footer.get_children()[-1].get_children()]
+        self.assertEqual(labels, ["Open discussion"])
+        card.destroy()
+
+    def test_failed_discussion_transport_does_not_focus_or_change_history(self):
+        from dunst_tray.walite import parse_activation
+        from test_walite import hint
+        self.history.add(replace(notification("walite"),
+                                 walite_activation=parse_activation(hint())))
+        with patch.object(self.tray.walite, "find_window"), \
+                patch.object(self.tray.walite, "raise_window") as focus, \
+                patch.object(self.tray, "_error") as error:
+            self.tray._open_walite_discussion(self.history.latest())
+            focus.assert_not_called()
+            error.assert_called_once()
+            self.assertNotIn("activation_id", str(error.call_args))
+        self.assertEqual(self.history.count(), 1)
+        self.assertEqual(self.history.unread_count(), 1)
+
     def test_panel_bounds_background_alpha_and_corner_clipping(self):
         import cairo
         import time

@@ -6,7 +6,8 @@
   `BecomeMonitor`, and filters notification calls and their replies.
 - `protocol.py` converts the eight `Notify` arguments into a small application
   model. It retains `desktop-entry` identity and urgency while dropping
-  arbitrary hints and sender metadata.
+  arbitrary hints and sender metadata. Valid Walite v1 activation hints are the
+  only private capability exception, scoped to their notification record.
 - `history.py` persists a bounded record set in SQLite. The database is private
   and replacement IDs do not overwrite earlier local rows.
 - `dunst.py` runs `dunstctl` only in response to user actions. There is no
@@ -18,6 +19,11 @@
   matching window for retained actions.
 - `ui.py` owns the XEmbed tray icon and GTK window. Application groups are
   reconstructed from the bounded store when the view changes.
+- `walite.py` strictly validates opaque per-notification capabilities and sends
+  one bounded request to a private, owner/peer-verified Unix socket. A separate
+  Open discussion control atomically consumes the stored capability before an
+  attempt, then best-effort focuses the existing uniquely marked window.
+  [Security, ordering and no-acknowledgment limits](WALITE.md) are explicit.
 - `tray_icon.py` caches an in-memory, theme-colored clean bell with one optional
   white unread dot. DND never selects a different bell image.
 - `settings.py` edits draft appearance preferences. `config.py` bounds values,

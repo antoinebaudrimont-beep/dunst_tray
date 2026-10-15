@@ -24,6 +24,7 @@ from .model import Notification
 from .panel import PanelWindow
 from .settings import AppearanceDialog
 from .tray_icon import render_bell
+from .walite import WaliteActivationClient, WaliteActivationError
 
 if TYPE_CHECKING:
     from .config import AppConfig
@@ -86,6 +87,8 @@ class GroupCard(Gtk.Box):
         action_callback,
         applications: ApplicationCatalog,
         show_icons: bool = True,
+        navigate_callback=None,
+        navigation_availability=None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("group-card")
@@ -94,6 +97,8 @@ class GroupCard(Gtk.Box):
         self.can_activate = can_activate
         self.visible_count = page_size
         self.action_callback = action_callback
+        self.navigate_callback = navigate_callback
+        self.navigation_availability = navigation_availability
         self.expanded = False
 
         self.header = Gtk.Button()
@@ -180,11 +185,34 @@ class GroupCard(Gtk.Box):
                     False,
                     0,
                 )
-            footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            has_navigation = bool(notification.walite_activation
+                                  and self.navigate_callback)
+            footer = Gtk.Box(orientation=(Gtk.Orientation.VERTICAL
+                                         if has_navigation
+                                         else Gtk.Orientation.HORIZONTAL),
+                             spacing=3)
             stamp = datetime.fromtimestamp(notification.received_at).strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
             footer.pack_start(_label(stamp, "message-time"), True, True, 0)
+            controls = footer
+            if has_navigation:
+                controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                                   spacing=6)
+                footer.pack_start(controls, False, False, 0)
+            if has_navigation:
+                navigate = Gtk.Button(label="Open discussion")
+                navigate.set_relief(Gtk.ReliefStyle.NONE)
+                enabled, explanation = self.navigation_availability(
+                    notification.walite_activation
+                )
+                navigate.set_sensitive(enabled)
+                navigate.set_tooltip_text(explanation)
+                navigate.connect(
+                    "clicked", lambda _button, item=notification:
+                    self.navigate_callback(item),
+                )
+                controls.pack_end(navigate, False, False, 0)
             if notification.has_default_action:
                 action = Gtk.Button(label="Show app")
                 action.set_relief(Gtk.ReliefStyle.NONE)
@@ -195,7 +223,7 @@ class GroupCard(Gtk.Box):
                     "clicked",
                     lambda _button, item=notification: self.action_callback(item),
                 )
-                footer.pack_end(action, False, False, 0)
+                controls.pack_end(action, False, False, 0)
             message.pack_start(footer, False, False, 0)
             self.messages.pack_start(message, False, False, 0)
 
@@ -235,6 +263,7 @@ class TrayApplication:
         self.applications = ApplicationCatalog()
         self.desktop = DesktopWindowActivator(self.applications)
         self.actions = WindowActions(self.walite, self.desktop)
+        self.walite_navigation = WaliteActivationClient()
         self.quit_callback = quit_callback
         self.unread = self.history.unread_count()
         self._icon_size = 22
@@ -454,6 +483,8 @@ class TrayApplication:
                     self._perform_action,
                     self.applications,
                     self.config.show_icons,
+                    self._open_walite_discussion,
+                    self.walite_navigation.availability,
                 )
                 if app_name in group_state:
                     card.expanded, card.visible_count = group_state[app_name]
@@ -539,6 +570,28 @@ class TrayApplication:
 
     def _can_perform_action(self, notification: Notification) -> tuple[bool, str]:
         return self.actions.availability(notification)
+
+    def _open_walite_discussion(self, notification: Notification) -> None:
+        if (notification.app_name.casefold() != "walite"
+                or notification.walite_activation is None):
+            return
+        if not self.history.take_walite_activation(notification):
+            return
+        try:
+            self.walite_navigation.send(notification.walite_activation)
+        except WaliteActivationError as error:
+            self.refresh()
+            self._error("Walite discussion request unavailable", str(error))
+            return
+        # Focus only after known transport failures have been ruled out. With
+        # multiple/unmarked windows, still route to the notification's exact
+        # socket; never guess a window by PID/title or start another process.
+        try:
+            self.walite.raise_window(self.walite.find_window())
+        except ActivationError:
+            pass
+        self.window.hide()
+        self.refresh()
 
     def _confirm_clear(self, _widget) -> None:
         dialog = Gtk.MessageDialog(

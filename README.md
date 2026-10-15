@@ -25,6 +25,8 @@ Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
 - Do Not Disturb controls, replay through Dunst, and confirmed history clearing.
 - **Show app** focuses a verified running application window. Tested with
   ChatGPT, Walite, and Xfce Task Manager.
+- **Open discussion** uses compatible Walite notifications' private one-time
+  tickets to request the original direct/group chat, independently of Show app.
 - Application icons from notification data, icon themes, or installed desktop
   entries, with a fallback when an icon is unavailable.
 - Graphical appearance settings for background opacity, width, height, corner
@@ -102,6 +104,9 @@ installer, and start the launcher again.
   newest first; **Show older** reveals more without deleting retained text.
 - **Show app:** raise the running application's window. This does not open a
   particular message or start another application process.
+- **Open discussion (Walite):** request that notification's original chat in
+  the already-running producer. Tickets expire; busy Walite protects drafts
+  and dialogs. See the [integration and limitations](docs/WALITE.md).
 - **Clear notification history:** after confirmation, clear the companion's
   retained history and Dunst's history. This resets unread state.
 
@@ -171,8 +176,9 @@ for ChatGPT, Walite, and Task Manager. Details and actual evidence are in the
   single running window. Missing, unknown, or ambiguous targets are disabled
   with an explanatory tooltip. No window is selected using partial title text.
 - Dunst's original actions are tied to popup position and sender lifetime;
-  saved callbacks cannot safely select a particular historical message. Walite
-  uses its existing X11 marker through an isolated compatibility adapter.
+  saved callbacks cannot safely select a particular historical message. New
+  Walite notifications use a separate documented one-time ticket protocol;
+  older records retain application focus through the existing X11 marker.
 - D-Bus policy restrictions can prevent passive capture while leaving tray
   controls usable. The tray never takes ownership of the notification service.
 - Popups, popup stacking, screen position, and visible-popup limits remain
@@ -185,8 +191,8 @@ for ChatGPT, Walite, and Task Manager. Details and actual evidence are in the
 
 ## Testing
 
-The publication check on **2026-10-15** reran all **37 tests successfully**:
-29 pure tests and 8 opt-in GTK/X11 tests.
+The Walite integration check on **2026-10-15** ran all **50 tests successfully**:
+39 non-GUI tests and 11 opt-in GTK/X11 tests, including native Unix sockets.
 
 Run pure tests without a desktop session:
 
@@ -194,7 +200,7 @@ Run pure tests without a desktop session:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-This discovers 37 tests, runs 29, and skips the 8 GTK checks. Run all 37 on an
+This discovers 50 tests, runs 39, and skips the 11 GTK checks. Run all 50 on an
 X11 desktop with the system GTK/Python dependencies installed:
 
 ```sh
@@ -222,7 +228,9 @@ daemon-history deletion. Restart the normal tray afterward.
 Notification contents stay in the local SQLite store. Its directory is mode
 `0700` and the database is mode `0600`. Display fields, action identifiers,
 desktop identity, and read state are retained; arbitrary hints and sender PIDs
-are not. Do not attach private history or real message screenshots to issues.
+are not. The known Walite activation hint is retained privately with its record
+until its first attempt, retention or clearing; it contains no stable ChatID.
+Do not attach private history or real message screenshots to issues.
 
 ## Uninstall
 

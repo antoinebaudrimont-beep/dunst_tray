@@ -7,6 +7,8 @@ Versioning once releases are tagged.
 
 ### Added
 
+- Walite v1 opaque-ticket discussion navigation, independent of generic
+  application focus, with private Unix socket verification and integration tests.
 - Persistent unread state and a clean tray bell with one white dot for unread
   messages, independent of Do Not Disturb.
 - GTK appearance settings with Apply/Cancel/Restore Defaults, atomic saving,

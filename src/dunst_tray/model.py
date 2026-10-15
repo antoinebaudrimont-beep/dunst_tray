@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from .walite import WaliteActivation
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +24,7 @@ class Notification:
     dunst_id: int | None = None
     desktop_entry: str = ""
     unread: bool = True
+    walite_activation: WaliteActivation | None = field(default=None, repr=False)
 
     @property
     def has_default_action(self) -> bool:

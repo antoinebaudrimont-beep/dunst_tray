@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .model import Notification
+from .walite import parse_activation
 
 
 def _unpack(value: Any) -> Any:
@@ -42,10 +43,15 @@ def parse_notify_call(
 
     clean_actions = tuple(str(item) for item in actions)
     desktop_entry = ""
+    walite_activation = None
     if isinstance(hints, Mapping):
         identity = _unpack(hints.get("desktop-entry", ""))
         if isinstance(identity, str):
             desktop_entry = identity
+        if str(app_name).strip().casefold() == "walite":
+            walite_activation = parse_activation(
+                _unpack(hints.get("x-walite-activation", ""))
+            )
     return Notification(
         id=None,
         received_at=time.time() if received_at is None else received_at,
@@ -58,5 +64,6 @@ def parse_notify_call(
         urgency=max(0, min(2, urgency)),
         expire_timeout=int(expire_timeout),
         desktop_entry=desktop_entry,
+        walite_activation=walite_activation,
     )
 

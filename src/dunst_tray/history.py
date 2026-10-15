@@ -10,6 +10,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 from .model import Notification
+from .walite import parse_activation
 
 
 class HistoryStore:
@@ -64,6 +65,11 @@ class HistoryStore:
                     "ALTER TABLE notifications ADD COLUMN "
                     "unread INTEGER NOT NULL DEFAULT 0"
                 )
+            if "walite_activation_json" not in columns:
+                self._connection.execute(
+                    "ALTER TABLE notifications ADD COLUMN "
+                    "walite_activation_json TEXT NOT NULL DEFAULT ''"
+                )
 
     def add(self, notification: Notification) -> int:
         """Insert one notification and trim only the oldest excess rows."""
@@ -74,8 +80,8 @@ class HistoryStore:
                 INSERT INTO notifications (
                     received_at, app_name, replaces_id, app_icon, summary,
                     body, actions_json, urgency, expire_timeout, dunst_id,
-                    desktop_entry, unread
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    desktop_entry, unread, walite_activation_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     notification.received_at,
@@ -90,6 +96,8 @@ class HistoryStore:
                     notification.dunst_id,
                     notification.desktop_entry,
                     int(notification.unread),
+                    notification.walite_activation.record_json()
+                    if notification.walite_activation else "",
                 ),
             )
             row_id = int(cursor.lastrowid)
@@ -134,6 +142,10 @@ class HistoryStore:
             ),
             desktop_entry=str(row["desktop_entry"]),
             unread=bool(row["unread"]),
+            walite_activation=(
+                parse_activation(str(row["walite_activation_json"]))
+                if str(row["app_name"]).casefold() == "walite" else None
+            ),
         )
 
     def all(self) -> list[Notification]:
@@ -190,6 +202,18 @@ class HistoryStore:
             self._connection.execute(
                 "UPDATE notifications SET unread = 0 WHERE unread = 1"
             )
+
+    def take_walite_activation(self, notification: Notification) -> bool:
+        """Claim and remove this exact one-time capability before an attempt."""
+        if notification.walite_activation is None:
+            return False
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                "UPDATE notifications SET walite_activation_json = '' "
+                "WHERE id = ? AND walite_activation_json = ?",
+                (notification.id, notification.walite_activation.record_json()),
+            )
+            return cursor.rowcount == 1
 
     def close(self) -> None:
         with self._lock:
