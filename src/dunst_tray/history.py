@@ -13,7 +13,7 @@ from .model import Notification
 
 
 class HistoryStore:
-    """Persist notifications without storing D-Bus hints or sender metadata."""
+    """Persist display fields and desktop identity, without sender metadata."""
 
     def __init__(self, path: Path, limit: int = 100) -> None:
         self.path = path
@@ -47,6 +47,16 @@ class HistoryStore:
                 )
                 """
             )
+            columns = {
+                row["name"] for row in self._connection.execute(
+                    "PRAGMA table_info(notifications)"
+                )
+            }
+            if "desktop_entry" not in columns:
+                self._connection.execute(
+                    "ALTER TABLE notifications ADD COLUMN "
+                    "desktop_entry TEXT NOT NULL DEFAULT ''"
+                )
 
     def add(self, notification: Notification) -> int:
         """Insert one notification and trim only the oldest excess rows."""
@@ -56,8 +66,9 @@ class HistoryStore:
                 """
                 INSERT INTO notifications (
                     received_at, app_name, replaces_id, app_icon, summary,
-                    body, actions_json, urgency, expire_timeout, dunst_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    body, actions_json, urgency, expire_timeout, dunst_id,
+                    desktop_entry
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     notification.received_at,
@@ -70,6 +81,7 @@ class HistoryStore:
                     notification.urgency,
                     notification.expire_timeout,
                     notification.dunst_id,
+                    notification.desktop_entry,
                 ),
             )
             row_id = int(cursor.lastrowid)
@@ -112,6 +124,7 @@ class HistoryStore:
             dunst_id=(
                 int(row["dunst_id"]) if row["dunst_id"] is not None else None
             ),
+            desktop_entry=str(row["desktop_entry"]),
         )
 
     def all(self) -> list[Notification]:

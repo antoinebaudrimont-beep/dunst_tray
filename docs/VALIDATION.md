@@ -18,10 +18,12 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
 ## Executed automated checks
 
-- 16 unit tests passed for configuration parsing/bounds, Dunst controls,
+- 22 unit tests passed for configuration parsing/bounds, Dunst controls,
   retention, grouping, duplicate preservation, Dunst-ID updates, clearing,
   protocol parsing, Walite eligibility, strict marker validation, successful
-  activation, and missing/ambiguous-window rejection.
+  activation, missing/ambiguous-window rejection, desktop-file user precedence,
+  desktop identity hints, migration of existing history, and activation by
+  window class rather than title.
 - `compileall` passed for source and tests.
 - `dunst-tray --version` returned `0.1.0.dev0`.
 
@@ -64,6 +66,12 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
   **Open** was enabled on all five, not only the newest record.
 - Clicked **Open** on the oldest retained Walite record and confirmed through
   `_NET_ACTIVE_WINDOW` that the marked running Walite window received focus.
+- Loaded two synthetic ChatGPT records with empty icon fields and no live Dunst
+  callbacks. Verified the installed ChatGPT SVG rendered to a 38×38 image and
+  visually inspected the actual logo in the GTK group header.
+- Clicked the older synthetic ChatGPT entry's **Open** button through X11 mouse
+  automation. Recorded retained ID 1, confirmed the active window changed from
+  the test center to the real ChatGPT window, and confirmed the center hid.
 - Removed the synthetic UI fixture database and window-only captures after the
   visual pass.
 

@@ -45,6 +45,15 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_notify_call(("too", "short"))
 
+    def test_desktop_identity_is_retained_without_other_hints(self) -> None:
+        parsed = parse_notify_call((
+            "Synthetic sender", 0, "", "Title", "Body", [],
+            {"desktop-entry": FakeVariant("org.example.App"),
+             "sender-pid": FakeVariant(123)}, -1,
+        ))
+        self.assertEqual(parsed.desktop_entry, "org.example.App")
+        self.assertFalse(hasattr(parsed, "hints"))
+
 
 if __name__ == "__main__":
     unittest.main()

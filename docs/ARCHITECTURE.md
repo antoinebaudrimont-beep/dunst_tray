@@ -5,13 +5,17 @@
 - `capture.py` creates one dedicated session-bus connection, calls
   `BecomeMonitor`, and filters notification calls and their replies.
 - `protocol.py` converts the eight `Notify` arguments into a small application
-  model. It intentionally drops arbitrary hints and sender metadata.
+  model. It retains `desktop-entry` identity and urgency while dropping
+  arbitrary hints and sender metadata.
 - `history.py` persists a bounded record set in SQLite. The database is private
   and replacement IDs do not overwrite earlier local rows.
 - `dunst.py` runs `dunstctl` only in response to user actions. There is no
   periodic subprocess or polling loop.
-- `activation.py` validates Walite's private X11 marker and raises the sole
-  matching window for retained Walite actions.
+- `applications.py` resolves desktop identity or unambiguous application names
+  against installed desktop files, respecting user overrides.
+- `activation.py` validates Walite's private X11 marker or matches installed
+  desktop IDs/`StartupWMClass` against X11 window classes, then raises the sole
+  matching window for retained actions.
 - `ui.py` owns the XEmbed tray icon and GTK window. Application groups are
   reconstructed from the bounded store when the view changes.
 
@@ -42,10 +46,20 @@ messages even if Dunst displays a single replacing popup.
 The monitor correlates a `Notify` call's sender/serial pair with the method
 reply's destination/reply-serial pair and records the returned Dunst ID. Dunst
 1.12.2 nevertheless invokes actions by visible stack position, not by ID. For
-generic applications, the UI therefore enables **Open** only on the newest
-notification and invokes position 0. Older actions remain disabled rather than
-risk opening the wrong app, and even the newest action becomes invalid when the
-popup or sender exits.
+applications without a resolved desktop identity or a dedicated adapter, the UI
+enables **Open** only on the newest notification and invokes position 0. Older
+unresolved actions remain disabled, and even the newest callback becomes invalid
+when the popup or sender exits.
+
+Installed desktop applications such as ChatGPT use durable window activation.
+The notification's `desktop-entry` hint, or an unambiguous display name for
+older records, resolves the application's icon and expected X11 classes.
+`WM_CLASS` is inspected per top-level window, avoiding title matching and
+preserving spaces in Electron resource names. Activation requires one matching
+window and reports a visible error otherwise. No desktop-file command or
+notification text is executed. This activates the application without claiming
+to restore a notification's private navigation callback. A schema migration
+adds `desktop_entry` to existing SQLite stores without removing retained rows.
 
 Walite exposes a durable application-level fallback: its running X11 window has
 a randomized `_WALITE_NOTIFICATION_<token>` property whose string value repeats

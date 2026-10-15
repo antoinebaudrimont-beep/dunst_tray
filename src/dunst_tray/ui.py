@@ -14,7 +14,10 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
-from .activation import ActivationError, WaliteWindowActivator
+from .activation import (
+    ActivationError, DesktopWindowActivator, WaliteWindowActivator,
+)
+from .applications import ApplicationCatalog
 from .dunst import DunstControlError, DunstController
 from .model import Notification
 
@@ -77,6 +80,7 @@ class GroupCard(Gtk.Box):
         page_size: int,
         can_activate,
         action_callback,
+        applications: ApplicationCatalog,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("group-card")
@@ -94,7 +98,10 @@ class GroupCard(Gtk.Box):
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
         self.arrow = Gtk.Label(label="▸")
         header_box.pack_start(self.arrow, False, False, 0)
-        header_box.pack_start(self._application_icon(notifications[0]), False, False, 0)
+        header_box.pack_start(
+            self._application_icon(notifications[0], applications),
+            False, False, 0,
+        )
 
         text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         name = _label(f"{app_name} — {len(notifications)}", "app-name")
@@ -114,19 +121,28 @@ class GroupCard(Gtk.Box):
         self._render_messages()
 
     @staticmethod
-    def _application_icon(notification: Notification) -> Gtk.Image:
-        icon = notification.app_icon
-        if icon and Path(icon).is_absolute() and Path(icon).is_file():
-            try:
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                    icon, 38, 38, True
-                )
-                return Gtk.Image.new_from_pixbuf(pixbuf)
-            except GLib.Error:
-                pass
-        if icon and not Path(icon).is_absolute():
-            image = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
-            if image.get_storage_type() != Gtk.ImageType.EMPTY:
+    def _application_icon(
+        notification: Notification, applications: ApplicationCatalog,
+    ) -> Gtk.Image:
+        app = applications.resolve(notification)
+        candidates = [notification.app_icon]
+        if app is not None:
+            candidates.extend((app.icon, app.desktop_id))
+        theme = Gtk.IconTheme.get_default()
+        for icon in candidates:
+            if not icon:
+                continue
+            if Path(icon).is_absolute():
+                try:
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                        icon, 38, 38, True
+                    )
+                    return Gtk.Image.new_from_pixbuf(pixbuf)
+                except GLib.Error:
+                    continue
+            if theme and theme.has_icon(icon):
+                image = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+                image.set_pixel_size(38)
                 return image
         return Gtk.Image.new_from_icon_name(
             "dialog-information-symbolic", Gtk.IconSize.DIALOG
@@ -214,6 +230,8 @@ class TrayApplication:
         self.history = history
         self.dunst = dunst
         self.walite = WaliteWindowActivator()
+        self.applications = ApplicationCatalog()
+        self.desktop = DesktopWindowActivator(self.applications)
         self.quit_callback = quit_callback
         self.unread = 0
         self._syncing_pause = False
@@ -367,6 +385,7 @@ class TrayApplication:
                     self.config.page_size,
                     self._can_perform_action,
                     self._perform_action,
+                    self.applications,
                 )
                 self.groups_box.pack_start(card, False, False, 0)
         self.groups_box.show_all()
@@ -427,12 +446,18 @@ class TrayApplication:
             self._error("Could not replay a notification", str(error))
 
     def _perform_action(self, notification: Notification) -> None:
-        if self.walite.can_activate(notification):
+        activator = next((
+            adapter for adapter in (self.walite, self.desktop)
+            if adapter.can_activate(notification)
+        ), None)
+        if activator is not None:
             try:
-                self.walite.activate(notification)
+                activator.activate(notification)
                 self.window.hide()
             except ActivationError as error:
-                self._error("Could not activate Walite", str(error))
+                self._error(
+                    f"Could not activate {notification.app_name}", str(error)
+                )
             return
         latest = self.history.latest()
         if latest is None or notification.id != latest.id:
@@ -446,7 +471,10 @@ class TrayApplication:
             )
 
     def _can_perform_action(self, notification: Notification) -> bool:
-        if self.walite.can_activate(notification):
+        if (
+            self.walite.can_activate(notification)
+            or self.desktop.can_activate(notification)
+        ):
             return True
         latest = self.history.latest()
         return bool(

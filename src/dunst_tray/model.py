@@ -20,6 +20,7 @@ class Notification:
     urgency: int
     expire_timeout: int
     dunst_id: int | None = None
+    desktop_entry: str = ""
 
     @property
     def has_default_action(self) -> bool:

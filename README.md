@@ -30,11 +30,12 @@ mouse behavior still need a manual desktop pass; see
 - Five messages shown initially per expanded group; “Show older” reveals more.
 - Configurable retention of 100 notifications by default.
 - Private SQLite persistence across tray and Dunst restarts.
-- Application icons with a safe symbolic fallback.
+- Application icons resolved from notification data or installed desktop
+  entries, with a safe symbolic fallback.
 - Durable **Open** controls for every retained Walite notification, using
   Walite's own X11 window marker to raise the running application.
-- Default action for the newest/topmost non-Walite notification while its
-  sender is live.
+- Durable application activation for installed desktop applications such as
+  ChatGPT, including retained notifications whose popup has expired.
 - Event-driven D-Bus capture and zero measured CPU use while idle in a
   three-second sample on the target machine.
 
@@ -104,8 +105,8 @@ monitor_dbus = true
 
 Restart `dunst-tray` after editing. The Settings menu reports the active path.
 The database directory is mode `0700` and the database is mode `0600`. Only
-display-relevant fields and action identifiers are saved; D-Bus hints such as
-sender PID are not persisted.
+display-relevant fields, action identifiers, and the `desktop-entry` application
+identity are saved; sender PID and arbitrary D-Bus hints are not persisted.
 
 ## Controls
 
@@ -118,9 +119,12 @@ sender PID are not persisted.
   companion history and Dunst's current history.
 - **Open (Walite):** raise the currently running, X11-marked Walite window from
   any retained Walite entry.
-- **Open (other applications):** invoke the newest/topmost notification's
-  default action while its sender and popup are still live. Saved older actions
-  remain disabled.
+- **Open (installed desktop applications):** raise the running window identified
+  by its desktop ID or `StartupWMClass`. This includes ChatGPT and works for
+  older retained entries without a live Dunst callback.
+- **Open (unresolved applications):** invoke the newest/topmost notification's
+  default action while its sender and popup are still live. Older unresolved
+  entries remain disabled.
 
 Messages inside each application group are newest first. The complete original
 summary and body strings remain stored even while the group is collapsed.
@@ -168,7 +172,14 @@ companion history is captured before that rule is applied.
   `wmctrl`. This remains usable after the original Dunst callback expires. A
   saved notification cannot reproduce Walite's original per-chat callback, so
   historical entries raise Walite without promising exact chat selection.
-- Other notification actions are D-Bus callbacks, not durable commands. Dunst
+- Installed application identity also provides a durable fallback for ChatGPT
+  and other desktop apps. The tray checks X11 application classes rather than
+  window titles and requires exactly one matching running window. It raises
+  the application; it does not recreate a notification's private navigation
+  callback or launch an application that has exited. Empty or unavailable
+  notification icons fall back to the installed application's icon, honoring
+  user desktop-file overrides.
+- Unresolved notification actions are D-Bus callbacks, not durable commands. Dunst
   1.12.2 addresses actions by visible stack position, not saved notification
   ID, so **Open** is enabled only for the newest record and can still stop
   working after its popup expires, the sender exits, or Dunst restarts. Saved
@@ -226,6 +237,10 @@ or an icon name available in the current theme. The center falls back safely.
 **Walite Open reports an error:** ensure Walite is running under X11 and that
 `wmctrl` and `xprop` are installed. The safety check requires exactly one
 Walite-marked window.
+
+**Application Open reports an error:** ensure the application is running and its
+desktop file's ID or `StartupWMClass` matches its X11 class. Ambiguous windows
+produce a visible error. Restart the tray after installing new desktop entries.
 
 **Stale non-Walite Open button:** the originating process or Dunst history no
 longer holds that action. This does not affect the saved message text.

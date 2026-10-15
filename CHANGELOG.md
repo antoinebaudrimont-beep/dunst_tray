@@ -14,6 +14,12 @@ Versioning once releases are tagged.
 
 ### Fixed
 
+- Resolve installed application icons when notifications omit their icon,
+  including existing ChatGPT history entries.
+- Activate running installed desktop applications from retained notifications
+  by X11 application class, including ChatGPT after its popup callback expires.
+- Preserve desktop-entry identity and migrate existing history without losing
+  messages.
 - Enable **Open** on every retained Walite notification and raise Walite via
   its validated X11 marker after the original Dunst callback has expired.
 

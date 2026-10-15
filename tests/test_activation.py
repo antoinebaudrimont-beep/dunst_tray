@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import subprocess
 import unittest
+from dataclasses import replace
 
-from dunst_tray.activation import ActivationError, WaliteWindowActivator
+from dunst_tray.activation import (
+    ActivationError, DesktopWindowActivator, WaliteWindowActivator,
+)
+from dunst_tray.applications import ApplicationCatalog, DesktopApplication
 from dunst_tray.model import Notification
 
 
@@ -87,6 +91,54 @@ class WaliteActivationTests(unittest.TestCase):
             f'_WALITE_NOTIFICATION_{marker}(STRING) = "{other}"\n'
         )
         self.assertFalse(WaliteWindowActivator._has_walite_marker(properties))
+
+
+class DesktopActivationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.catalog = ApplicationCatalog([])
+        self.catalog.applications.append(DesktopApplication(
+            "chatgpt", "ChatGPT", "chatgpt", frozenset({"chatgpt"}),
+        ))
+        self.calls = []
+
+    def runner(self, arguments):
+        call = tuple(arguments)
+        self.calls.append(call)
+        output = ""
+        if call == ("wmctrl", "-l"):
+            # A matching title must not override the actual WM_CLASS.
+            output = "0x200001 0 host ChatGPT\n0x200002 0 host Renamed\n"
+        elif call == ("xprop", "-id", "0x200001", "WM_CLASS"):
+            output = 'WM_CLASS(STRING) = "terminal", "Terminal"\n'
+        elif call == ("xprop", "-id", "0x200002", "WM_CLASS"):
+            output = (
+                'WM_CLASS(STRING) = "chatgpt (/tmp/profile)", "Chatgpt"\n'
+            )
+        return subprocess.CompletedProcess(call, 0, output, "")
+
+    def test_expired_saved_entry_raises_matching_class_not_title(self) -> None:
+        activator = DesktopWindowActivator(
+            self.catalog, wmctrl="wmctrl", xprop="xprop", display=":0",
+            runner=self.runner,
+        )
+        old = replace(notification("ChatGPT"), id=1, received_at=0)
+        self.assertTrue(activator.can_activate(old))
+        activator.activate(old)
+        self.assertIn(("wmctrl", "-i", "-a", "0x200002"), self.calls)
+        self.assertNotIn(("wmctrl", "-i", "-a", "0x200001"), self.calls)
+
+    def test_missing_application_window_reports_failure(self) -> None:
+        self.catalog.applications[0] = DesktopApplication(
+            "chatgpt", "ChatGPT", "chatgpt", frozenset({"no-such-class"}),
+        )
+        activator = DesktopWindowActivator(
+            self.catalog, wmctrl="wmctrl", xprop="xprop", display=":0",
+            runner=self.runner,
+        )
+        with self.assertRaisesRegex(ActivationError, "No running ChatGPT"):
+            activator.activate(notification("ChatGPT"))
+        self.assertFalse(any(call[:3] == ("wmctrl", "-i", "-a")
+                             for call in self.calls))
 
 
 if __name__ == "__main__":

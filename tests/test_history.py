@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from dunst_tray.history import HistoryStore
@@ -75,6 +76,24 @@ class HistoryTests(unittest.TestCase):
         self.store.clear()
         self.assertEqual(self.store.count(), 0)
         self.assertIsNone(self.store.latest())
+
+    def test_existing_database_migrates_and_retains_desktop_identity(self) -> None:
+        self.store.add(notification(1))
+        # Model the schema from before desktop-entry was persisted.
+        self.store._connection.execute(
+            "ALTER TABLE notifications DROP COLUMN desktop_entry"
+        )
+        self.store._connection.commit()
+        self.store.close()
+        self.store = HistoryStore(self.store.path, limit=5)
+        self.assertEqual(self.store.count(), 1)
+        self.assertEqual(self.store.latest().desktop_entry, "")
+        self.store.add(replace(
+            notification(2), desktop_entry="org.example.App",
+        ))
+        self.store.close()
+        self.store = HistoryStore(self.store.path, limit=5)
+        self.assertEqual(self.store.latest().desktop_entry, "org.example.App")
 
 
 if __name__ == "__main__":
