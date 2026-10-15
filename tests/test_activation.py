@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 
 from dunst_tray.activation import (
-    ActivationError, DesktopWindowActivator, WaliteWindowActivator,
+    ActivationError, DesktopWindowActivator, WaliteWindowActivator, WindowActions,
 )
 from dunst_tray.applications import ApplicationCatalog, DesktopApplication
 from dunst_tray.model import Notification
@@ -137,6 +137,45 @@ class DesktopActivationTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ActivationError, "No running ChatGPT"):
             activator.activate(notification("ChatGPT"))
+        self.assertFalse(any(call[:3] == ("wmctrl", "-i", "-a")
+                             for call in self.calls))
+
+    def test_unresolvable_expired_and_missing_action_targets_are_disabled(self):
+        desktop = DesktopWindowActivator(
+            self.catalog, wmctrl="wmctrl", xprop="xprop", display=":0",
+            runner=self.runner,
+        )
+        actions = WindowActions(WaliteWindowActivator(display=""), desktop)
+        for item in (
+            notification("Unknown future application"),
+            replace(notification("ChatGPT"), actions=()),
+        ):
+            self.assertFalse(actions.availability(item)[0])
+        self.assertTrue(actions.availability(notification("ChatGPT"))[0])
+        # Two same-application windows must not silently select one.
+        desktop.runner = lambda args: subprocess.CompletedProcess(
+            args, 0,
+            "0x200001 0 host A\n0x200002 0 host B\n"
+            if args[-1] == "-l" else 'WM_CLASS(STRING) = "app", "Chatgpt"',
+            "",
+        )
+        actions.reset()
+        available, reason = actions.availability(notification("ChatGPT"))
+        self.assertFalse(available)
+        self.assertIn("More than one", reason)
+
+    def test_future_aerc_without_verified_window_is_disabled(self):
+        self.catalog.applications.append(DesktopApplication(
+            "aerc", "aerc", "utilities-terminal", frozenset({"aerc"}),
+        ))
+        desktop = DesktopWindowActivator(
+            self.catalog, wmctrl="wmctrl", xprop="xprop", display=":0",
+            runner=self.runner,
+        )
+        actions = WindowActions(WaliteWindowActivator(display=""), desktop)
+        self.assertFalse(actions.availability(notification("aerc"))[0])
+        with self.assertRaises(ActivationError):
+            actions.activate(notification("aerc"))
         self.assertFalse(any(call[:3] == ("wmctrl", "-i", "-a")
                              for call in self.calls))
 

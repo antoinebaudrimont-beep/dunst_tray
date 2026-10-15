@@ -145,7 +145,9 @@ class DesktopWindowActivator(X11WindowActivator):
             and self.catalog.resolve(notification)
         )
 
-    def activate(self, notification: Notification) -> None:
+    def find_window(self, notification: Notification) -> str:
+        """Resolve one exact application window, without activating it."""
+
         app = self.catalog.resolve(notification)
         if not self.can_activate(notification) or app is None or not self.xprop:
             raise ActivationError("Application window identity is unavailable")
@@ -170,5 +172,56 @@ class DesktopWindowActivator(X11WindowActivator):
             raise ActivationError(
                 f"More than one {app.name} window was found"
             )
-        self.raise_window(matches[0])
+        return matches[0]
+
+    def activate(self, notification: Notification) -> None:
+        self.raise_window(self.find_window(notification))
+
+
+class WindowActions:
+    """Describe verified application focus separately from message callbacks."""
+
+    def __init__(self, walite, desktop) -> None:
+        self.walite = walite
+        self.desktop = desktop
+        self.reset()
+
+    def reset(self) -> None:
+        self._availability: dict[tuple[str, str], tuple[bool, str]] = {}
+
+    def adapter(self, notification: Notification):
+        return next((
+            adapter for adapter in (self.walite, self.desktop)
+            if adapter.can_activate(notification)
+        ), None)
+
+    def availability(self, notification: Notification) -> tuple[bool, str]:
+        if not notification.has_default_action:
+            return False, "The sender did not provide an action."
+        key = (notification.app_name, notification.desktop_entry)
+        if key not in self._availability:
+            adapter = self.adapter(notification)
+            if adapter is None:
+                result = (False,
+                          "No reliable application window target is available. "
+                          "Saved message callbacks cannot be replayed safely.")
+            else:
+                try:
+                    if adapter is self.walite:
+                        adapter.find_window()
+                    else:
+                        adapter.find_window(notification)
+                    result = (True, "Raise the application window; this does "
+                              "not select the original message.")
+                except ActivationError as error:
+                    result = (False, str(error))
+            self._availability[key] = result
+        return self._availability[key]
+
+    def activate(self, notification: Notification) -> None:
+        adapter = self.adapter(notification)
+        if adapter is None:
+            raise ActivationError("No reliable application window target")
+        # Re-resolve at click time: a window may have closed since rendering.
+        adapter.activate(notification)
 

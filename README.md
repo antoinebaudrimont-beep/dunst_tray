@@ -117,14 +117,15 @@ identity are saved; sender PID and arbitrary D-Bus hints are not persisted.
 - **Replay latest:** ask Dunst to pop its latest history entry.
 - **Clear notification history:** after confirmation, clear both the local
   companion history and Dunst's current history.
-- **Open (Walite):** raise the currently running, X11-marked Walite window from
+- **Show app (Walite):** raise the currently running, X11-marked Walite window from
   any retained Walite entry.
-- **Open (installed desktop applications):** raise the running window identified
+- **Show app (installed desktop applications):** raise the running window identified
   by its desktop ID or `StartupWMClass`. This includes ChatGPT and works for
   older retained entries without a live Dunst callback.
-- **Open (unresolved applications):** invoke the newest/topmost notification's
-  default action while its sender and popup are still live. Older unresolved
-  entries remain disabled.
+- **Unresolved or ambiguous targets:** the control is disabled and its tooltip
+  explains why. Application focus does not select the original message. The
+  center never invokes an unrelated popup's position-based Dunst callback and
+  never launches another application process.
 
 Messages inside each application group are newest first. The complete original
 summary and body strings remain stored even while the group is collapsed.
