@@ -31,7 +31,10 @@ mouse behavior still need a manual desktop pass; see
 - Configurable retention of 100 notifications by default.
 - Private SQLite persistence across tray and Dunst restarts.
 - Application icons with a safe symbolic fallback.
-- Default action for the newest/topmost notification while its sender is live.
+- Durable **Open** controls for every retained Walite notification, using
+  Walite's own X11 window marker to raise the running application.
+- Default action for the newest/topmost non-Walite notification while its
+  sender is live.
 - Event-driven D-Bus capture and zero measured CPU use while idle in a
   three-second sample on the target machine.
 
@@ -40,7 +43,7 @@ mouse behavior still need a manual desktop pass; see
 Install repository packages on Debian/MX Linux:
 
 ```sh
-sudo apt install dunst python3 python3-gi gir1.2-gtk-3.0
+sudo apt install dunst python3 python3-gi gir1.2-gtk-3.0 wmctrl x11-utils
 ```
 
 `dunstctl` is included with Dunst. `notify-send` from `libnotify-bin` is useful
@@ -113,8 +116,11 @@ sender PID are not persisted.
 - **Replay latest:** ask Dunst to pop its latest history entry.
 - **Clear notification history:** after confirmation, clear both the local
   companion history and Dunst's current history.
-- **Open:** invoke the newest/topmost notification's default action while its
-  sender and popup are still live. Saved older actions are disabled.
+- **Open (Walite):** raise the currently running, X11-marked Walite window from
+  any retained Walite entry.
+- **Open (other applications):** invoke the newest/topmost notification's
+  default action while its sender and popup are still live. Saved older actions
+  remain disabled.
 
 Messages inside each application group are newest first. The complete original
 summary and body strings remain stored even while the group is collapsed.
@@ -157,11 +163,16 @@ companion history is captured before that rule is applied.
 
 ## Actions and privacy limitations
 
-- Notification actions are D-Bus callbacks, not durable commands. Dunst 1.12.2
-  addresses actions by visible stack position, not saved notification ID, so
-  **Open** is enabled only for the newest record and can still stop working
-  after its popup expires, the sender exits, or Dunst restarts. Saved text
-  remains available.
+- Walite is handled specially. Every retained Walite **Open** control locates
+  the sole window carrying Walite's private X11 marker and raises it with
+  `wmctrl`. This remains usable after the original Dunst callback expires. A
+  saved notification cannot reproduce Walite's original per-chat callback, so
+  historical entries raise Walite without promising exact chat selection.
+- Other notification actions are D-Bus callbacks, not durable commands. Dunst
+  1.12.2 addresses actions by visible stack position, not saved notification
+  ID, so **Open** is enabled only for the newest record and can still stop
+  working after its popup expires, the sender exits, or Dunst restarts. Saved
+  text remains available.
 - Passive monitoring can see notification content from all applications in the
   user's session. Keep the database private and use Clear or uninstall
   `--purge` when appropriate.
@@ -212,8 +223,12 @@ the same desktop session.
 **Icons are missing:** applications should send an absolute readable image path
 or an icon name available in the current theme. The center falls back safely.
 
-**Stale Open button:** the originating process or Dunst history no longer holds
-that action. This does not affect the saved message text.
+**Walite Open reports an error:** ensure Walite is running under X11 and that
+`wmctrl` and `xprop` are installed. The safety check requires exactly one
+Walite-marked window.
+
+**Stale non-Walite Open button:** the originating process or Dunst history no
+longer holds that action. This does not affect the saved message text.
 
 ## Uninstall and rollback
 

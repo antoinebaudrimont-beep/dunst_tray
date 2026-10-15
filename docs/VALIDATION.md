@@ -18,9 +18,10 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
 ## Executed automated checks
 
-- 12 unit tests passed for configuration parsing/bounds, Dunst controls,
-  retention, grouping, duplicate preservation, Dunst-ID updates, clearing, and
-  protocol parsing.
+- 16 unit tests passed for configuration parsing/bounds, Dunst controls,
+  retention, grouping, duplicate preservation, Dunst-ID updates, clearing,
+  protocol parsing, Walite eligibility, strict marker validation, successful
+  activation, and missing/ambiguous-window rejection.
 - `compileall` passed for source and tests.
 - `dunst-tray --version` returned `0.1.0.dev0`.
 
@@ -59,6 +60,10 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
   application cards, fallback icons, titles/bodies/timestamps, five-message
   expansion, “Show older (3)”, access to all eight records, scrolling, and
   collapse behavior.
+- Loaded five retained synthetic Walite records and visually confirmed that
+  **Open** was enabled on all five, not only the newest record.
+- Clicked **Open** on the oldest retained Walite record and confirmed through
+  `_NET_ACTIVE_WINDOW` that the marked running Walite window received focus.
 - Removed the synthetic UI fixture database and window-only captures after the
   visual pass.
 
@@ -67,13 +72,11 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 - Activating each right-click menu item with a human mouse pass. The right-click
   path was triggered without a crash, but individual menu selection was not
   automated.
-- Selecting a live notification's **Open** button from the GTK center.
 - Xfce logout/login autostart.
 - i3 tray embedding and geometry.
 - Behavior when the session bus is deliberately disconnected.
 - Long-duration memory stability beyond the bounded functional load test.
 
 These items require further user-session interaction and are not reported as
-passing. The underlying current-action control was exercised directly, but not
-by clicking the GTK button.
+passing.
 

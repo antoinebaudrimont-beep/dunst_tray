@@ -9,7 +9,7 @@ data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/dunst-tray"
 autostart_dir="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 
 missing=""
-for command_name in python3 dunst dunstctl; do
+for command_name in python3 dunst dunstctl wmctrl xprop; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
         missing="$missing $command_name"
     fi
@@ -19,7 +19,7 @@ if ! python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository
 fi
 if [ -n "$missing" ]; then
     echo "Missing required components:$missing" >&2
-    echo "On Debian/MX Linux: sudo apt install dunst python3-gi gir1.2-gtk-3.0" >&2
+    echo "On Debian/MX Linux: sudo apt install dunst python3-gi gir1.2-gtk-3.0 wmctrl x11-utils" >&2
     exit 1
 fi
 

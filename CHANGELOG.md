@@ -12,3 +12,8 @@ Versioning once releases are tagged.
 - Dunst pause, replay, clear-history, and action controls.
 - Local install, autostart, and uninstall tooling.
 
+### Fixed
+
+- Enable **Open** on every retained Walite notification and raise Walite via
+  its validated X11 marker after the original Dunst callback has expired.
+

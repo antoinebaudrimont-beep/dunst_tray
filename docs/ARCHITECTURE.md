@@ -10,6 +10,8 @@
   and replacement IDs do not overwrite earlier local rows.
 - `dunst.py` runs `dunstctl` only in response to user actions. There is no
   periodic subprocess or polling loop.
+- `activation.py` validates Walite's private X11 marker and raises the sole
+  matching window for retained Walite actions.
 - `ui.py` owns the XEmbed tray icon and GTK window. Application groups are
   reconstructed from the bounded store when the view changes.
 
@@ -39,10 +41,20 @@ messages even if Dunst displays a single replacing popup.
 
 The monitor correlates a `Notify` call's sender/serial pair with the method
 reply's destination/reply-serial pair and records the returned Dunst ID. Dunst
-1.12.2 nevertheless invokes actions by visible stack position, not by ID.
-Accordingly, the UI enables **Open** only on the newest notification and invokes
-position 0. Older actions are disabled rather than risk opening the wrong app.
-Even the newest action becomes invalid when the popup or sender exits.
+1.12.2 nevertheless invokes actions by visible stack position, not by ID. For
+generic applications, the UI therefore enables **Open** only on the newest
+notification and invokes position 0. Older actions remain disabled rather than
+risk opening the wrong app, and even the newest action becomes invalid when the
+popup or sender exits.
+
+Walite exposes a durable application-level fallback: its running X11 window has
+a randomized `_WALITE_NOTIFICATION_<token>` property whose string value repeats
+the same token. `activation.py` enumerates top-level windows, validates this
+name/value pair strictly, requires exactly one match, and raises it by numeric
+window ID. This makes every retained Walite **Open** control useful without
+executing saved notification text or guessing by window title. The historical
+record does not contain Walite's private chat identifier, so this fallback
+raises the application but does not claim to select the original chat.
 
 ## Failure isolation
 

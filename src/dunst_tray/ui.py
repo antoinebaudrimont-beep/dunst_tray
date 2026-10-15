@@ -14,6 +14,7 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
+from .activation import ActivationError, WaliteWindowActivator
 from .dunst import DunstControlError, DunstController
 from .model import Notification
 
@@ -74,14 +75,14 @@ class GroupCard(Gtk.Box):
         app_name: str,
         notifications: list[Notification],
         page_size: int,
-        actionable_id: int | None,
+        can_activate,
         action_callback,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("group-card")
         self.notifications = notifications
         self.page_size = page_size
-        self.actionable_id = actionable_id
+        self.can_activate = can_activate
         self.visible_count = page_size
         self.action_callback = action_callback
         self.expanded = False
@@ -165,9 +166,9 @@ class GroupCard(Gtk.Box):
             if notification.has_default_action:
                 action = Gtk.Button(label="Open")
                 action.set_relief(Gtk.ReliefStyle.NONE)
-                is_current = notification.id == self.actionable_id
-                action.set_sensitive(is_current)
-                if not is_current:
+                actionable = self.can_activate(notification)
+                action.set_sensitive(actionable)
+                if not actionable:
                     action.set_tooltip_text(
                         "Saved actions are not durable; only the newest live "
                         "notification can be opened safely"
@@ -212,6 +213,7 @@ class TrayApplication:
         self.config_path = config_path
         self.history = history
         self.dunst = dunst
+        self.walite = WaliteWindowActivator()
         self.quit_callback = quit_callback
         self.unread = 0
         self._syncing_pause = False
@@ -358,14 +360,12 @@ class TrayApplication:
             empty.set_justify(Gtk.Justification.CENTER)
             self.groups_box.pack_start(empty, False, False, 0)
         else:
-            latest = self.history.latest()
-            actionable_id = latest.id if latest is not None else None
             for app_name, notifications in groups.items():
                 card = GroupCard(
                     app_name,
                     notifications,
                     self.config.page_size,
-                    actionable_id,
+                    self._can_perform_action,
                     self._perform_action,
                 )
                 self.groups_box.pack_start(card, False, False, 0)
@@ -427,15 +427,33 @@ class TrayApplication:
             self._error("Could not replay a notification", str(error))
 
     def _perform_action(self, notification: Notification) -> None:
+        if self.walite.can_activate(notification):
+            try:
+                self.walite.activate(notification)
+                self.window.hide()
+            except ActivationError as error:
+                self._error("Could not activate Walite", str(error))
+            return
         latest = self.history.latest()
         if latest is None or notification.id != latest.id:
             return
         try:
             self.dunst.perform_current_action()
+            self.window.hide()
         except DunstControlError as error:
             self._error(
                 "The original notification action is unavailable", str(error)
             )
+
+    def _can_perform_action(self, notification: Notification) -> bool:
+        if self.walite.can_activate(notification):
+            return True
+        latest = self.history.latest()
+        return bool(
+            notification.has_default_action
+            and latest is not None
+            and notification.id == latest.id
+        )
 
     def _confirm_clear(self, _widget) -> None:
         dialog = Gtk.MessageDialog(
