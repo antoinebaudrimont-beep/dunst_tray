@@ -1,5 +1,31 @@
 # Work progress — resumable implementation
 
+## Current task — repeatable Walite navigation (2026-10-15)
+
+- User confirms real WhatsApp navigation and Xfce reboot autostart work.
+  New requirement: keep Open discussion usable repeatedly without replaying
+  consumed tickets. No push/release. Both repositories start clean.
+- Coordinated design: version 2 hints/requests, server-side atomic one-use
+  ticket rotation returning a fresh capability for the same private ChatID.
+  Keep bounded 32 notification chains, original FIFO position, absolute 24-hour
+  expiry (not extended on clicks), private socket verification, v1 compatibility,
+  draft/modal protection, and unchanged generic focus. No automatic retries.
+- Response acknowledges bounded queue admission only, not rendered selection.
+  Expired/evicted/unknown tickets return a redacted unavailable result; transport
+  ambiguity fails closed. No fallback to stable identities or reusable tokens.
+- Tray claims the old capability before sending, conditionally persists the
+  replacement into that same record, then refreshes independent controls.
+- Coordinated contract, implementation and regressions complete. Walite committed
+  as `5ad0b96`; vet/full/race tests pass. All 56 tray tests pass, including 13 GTK.
+- Real X11 candidate acceptance passed: repeated/consecutive and alternating
+  clicks on the same group/direct records, persisted replacement after tray
+  reconstruction, generic focus independence, draft/modal protection followed
+  by successful reuse, server-expiry fault injection and Walite restart with
+  old history disabled/new notifications working. No real account or sends.
+- Next: save tray implementation commit, install validated candidates with code
+  backups, restore normal apps and verify installed package/config/history.
+  Never reset/re-pair account data; do not push/tag/release.
+
 ## Current task — Walite discussion activation (2026-10-15)
 
 - New request supersedes prior publication authority: **do not push or release**.

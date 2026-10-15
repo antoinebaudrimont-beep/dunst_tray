@@ -75,7 +75,7 @@ class WaliteSocketTests(unittest.TestCase):
         self.received = queue.Queue()
         self.reader = None
 
-    def receive(self):
+    def receive(self, response=None):
         def read():
             try:
                 connection, _address = self.listener.accept()
@@ -88,6 +88,9 @@ class WaliteSocketTests(unittest.TestCase):
                             break
                         payload.extend(block)
                     self.received.put(bytes(payload))
+                    if response is not None:
+                        connection.sendall(response if isinstance(response, bytes)
+                                           else json.dumps(response).encode("utf-8"))
             except (OSError, TimeoutError):
                 self.received.put(None)
         self.reader = threading.Thread(target=read)
@@ -198,13 +201,96 @@ class WaliteSocketTests(unittest.TestCase):
             def getsockopt(wrapper, *_args):
                 return struct.pack("3i", 1, os.geteuid() + 1, os.getegid())
 
-        with patch("dunst_tray.walite.socket.socket", return_value=WrongPeer()):
+        # Replace the client's module binding, not the global socket factory:
+        # listener.accept() constructs a native socket in the reader thread.
+        from types import SimpleNamespace
+        client_socket = SimpleNamespace(**{**vars(socket),
+                                          "socket": lambda *_args: WrongPeer()})
+        with patch("dunst_tray.walite.socket", client_socket):
             with self.assertRaises(WaliteActivationError):
                 self.client.send(self.metadata)
         self.assertEqual(self.received.get(timeout=1), b"")
 
+    def test_v2_repeated_exchange_uses_new_tickets_and_fixed_expiry(self):
+        expiry = int(time.time()) + 3600
+        metadata = parse_activation(hint(str(self.endpoint), version=2,
+                                         expires_at=expiry))
+        self.assertEqual(parse_activation(metadata.record_json()), metadata)
+        self.assertTrue(self.client.availability(metadata)[0])
+        for successor, status in (("b", "queued"), ("c", "busy"), ("d", "queued")):
+            old = metadata.activation_id
+            self.receive({"version": 2, "status": status,
+                          "activation_id": successor * 64, "expires_at": expiry})
+            result = self.client.send(metadata)
+            self.assertEqual(result.queued, status == "queued")
+            self.assertEqual(result.activation.activation_id, successor * 64)
+            self.assertEqual(result.activation.expires_at, expiry)
+            self.assertNotIn(successor * 64, repr(result))
+            self.assertEqual(json.loads(self.received.get(timeout=1)),
+                             {"version": 2, "activation_id": old})
+            metadata = result.activation
+            self.reader.join(timeout=1)
+
+    def test_v2_expiry_is_disabled_without_sending(self):
+        metadata = parse_activation(hint(str(self.endpoint), version=2,
+                                         expires_at=int(time.time()) - 1))
+        self.assertFalse(self.client.availability(metadata)[0])
+        with self.assertRaises(WaliteActivationError):
+            self.client.send(metadata)
+        self.assertTrue(self.received.empty())
+
+    def test_v2_response_rejects_unavailable_reused_and_malformed_successors(self):
+        expiry = int(time.time()) + 3600
+        metadata = parse_activation(hint(str(self.endpoint), version=2,
+                                         expires_at=expiry))
+        valid = {"version": 2, "status": "queued", "activation_id": "b" * 64,
+                 "expires_at": expiry}
+        invalid = [
+            {"version": 2, "status": "unavailable"},
+            {**valid, "activation_id": "a" * 64},
+            {**valid, "expires_at": expiry + 1},
+            {**valid, "expires_at": True}, {**valid, "version": True},
+            {**valid, "chat_id": "synthetic@lid"},
+            {**valid, "status": "opened"}, {**valid, "activation_id": "short"},
+            b'{"version":2,"version":2}', b"[", b"\xff", b" " * 1025,
+            json.dumps(valid).encode() + b"{}", b"",
+        ]
+        for response in invalid:
+            self.receive(response)
+            with self.assertRaises(WaliteActivationError) as captured:
+                self.client.send(metadata)
+            self.assertNotIn(str(self.endpoint), str(captured.exception))
+            self.assertNotIn("a" * 64, str(captured.exception))
+            self.received.get(timeout=1)
+            self.reader.join(timeout=1)
+
 
 class WaliteHistoryIntegrationTests(unittest.TestCase):
+    def test_renewal_survives_restart_and_stale_claim_cannot_resurrect_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            location = Path(directory) / "history.sqlite3"
+            old = parse_activation(hint(version=2, expires_at=int(time.time()) + 3600))
+            new = replace(old, activation_id="b" * 64)
+            store = HistoryStore(location)
+            store.add(replace(notification("walite"), walite_activation=old))
+            item = store.latest()
+            claim = store.take_walite_activation(item)
+            self.assertIsNotNone(claim)
+            self.assertIsNone(store.take_walite_activation(item))
+            self.assertTrue(store.finish_walite_activation(item.id, claim, new))
+            self.assertFalse(store.finish_walite_activation(item.id, claim, old))
+            store.close()
+            store = HistoryStore(location)
+            self.assertEqual(store.latest().walite_activation, new)
+            self.assertEqual(store.unread_count(), 1)
+            claim = store.take_walite_activation(store.latest())
+            store.clear()
+            store.add(notification("walite"))  # AUTOINCREMENT reset reuses ID.
+            self.assertEqual(store.latest().id, item.id)
+            self.assertFalse(store.finish_walite_activation(item.id, claim, new))
+            self.assertIsNone(store.latest().walite_activation)
+            store.close()
+
     def test_migration_roundtrip_consumption_and_clear_preserve_record_state(self):
         with tempfile.TemporaryDirectory() as directory:
             location = Path(directory) / "history.sqlite3"

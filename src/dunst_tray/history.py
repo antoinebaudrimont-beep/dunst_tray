@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sqlite3
 import threading
 from collections import OrderedDict
@@ -203,15 +204,27 @@ class HistoryStore:
                 "UPDATE notifications SET unread = 0 WHERE unread = 1"
             )
 
-    def take_walite_activation(self, notification: Notification) -> bool:
-        """Claim and remove this exact one-time capability before an attempt."""
+    def take_walite_activation(self, notification: Notification) -> str | None:
+        """Claim the exact one-use ticket; an opaque marker prevents stale saves."""
         if notification.walite_activation is None:
-            return False
+            return None
+        claim = "in-flight:" + secrets.token_hex(16)
         with self._lock, self._connection:
             cursor = self._connection.execute(
-                "UPDATE notifications SET walite_activation_json = '' "
+                "UPDATE notifications SET walite_activation_json = ? "
                 "WHERE id = ? AND walite_activation_json = ?",
-                (notification.id, notification.walite_activation.record_json()),
+                (claim, notification.id,
+                 notification.walite_activation.record_json()),
+            )
+            return claim if cursor.rowcount == 1 else None
+
+    def finish_walite_activation(self, row_id, claim, renewed=None) -> bool:
+        """Save only into the still-claimed record; never resurrect cleared rows."""
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                "UPDATE notifications SET walite_activation_json = ? "
+                "WHERE id = ? AND walite_activation_json = ?",
+                (renewed.record_json() if renewed else "", row_id, claim),
             )
             return cursor.rowcount == 1
 

@@ -21,8 +21,11 @@
   reconstructed from the bounded store when the view changes.
 - `walite.py` strictly validates opaque per-notification capabilities and sends
   one bounded request to a private, owner/peer-verified Unix socket. A separate
-  Open discussion control atomically consumes the stored capability before an
-  attempt, then best-effort focuses the existing uniquely marked window.
+  Open discussion control atomically claims the stored capability before an
+  attempt. V2 consumes it once on the server and returns a fresh, fixed-expiry
+  successor; the tray conditionally saves it in the same claimed record so the
+  control remains reusable without replay. V1 remains one-shot. Known failures
+  do not focus Walite; queue admission precedes best-effort unique-marker focus.
   [Security, ordering and no-acknowledgment limits](WALITE.md) are explicit.
 - `tray_icon.py` caches an in-memory, theme-colored clean bell with one optional
   white unread dot. DND never selects a different bell image.

@@ -27,6 +27,7 @@ Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
   ChatGPT, Walite, and Xfce Task Manager.
 - **Open discussion** uses compatible Walite notifications' private one-time
   tickets to request the original direct/group chat, independently of Show app.
+  V2 rotates tickets securely so the same notification can be opened repeatedly.
 - Application icons from notification data, icon themes, or installed desktop
   entries, with a fallback when an icon is unavailable.
 - Graphical appearance settings for background opacity, width, height, corner
@@ -88,8 +89,9 @@ Dunst session setup running.
 Config, data, and autostart paths honor `XDG_CONFIG_HOME` / `XDG_DATA_HOME` when
 set. The launcher and application directory stay under `~/.local`.
 
-Autostart is configured by installation, but a real logout/login or reboot
-cycle has **not yet been verified**. A single-instance lock prevents duplicate
+Autostart is configured by installation. The user verified Xfce startup after
+reboot on 2026-10-15; this is user-reported, not a fresh agent-run reboot test.
+A single-instance lock prevents duplicate
 tray processes. To update, quit the running tray, pull changes, rerun the
 installer, and start the launcher again.
 
@@ -105,7 +107,9 @@ installer, and start the launcher again.
 - **Show app:** raise the running application's window. This does not open a
   particular message or start another application process.
 - **Open discussion (Walite):** request that notification's original chat in
-  the already-running producer. Tickets expire; busy Walite protects drafts
+  the already-running producer. V2 supports repeated clicks with fresh one-use
+  tickets, bounded to 32 notification chains and 24 hours per Walite instance.
+  Old history cannot navigate after Walite restarts. Busy Walite protects drafts
   and dialogs. See the [integration and limitations](docs/WALITE.md).
 - **Clear notification history:** after confirmation, clear the companion's
   retained history and Dunst's history. This resets unread state.
@@ -191,8 +195,8 @@ for ChatGPT, Walite, and Task Manager. Details and actual evidence are in the
 
 ## Testing
 
-The Walite integration check on **2026-10-15** ran all **50 tests successfully**:
-39 non-GUI tests and 11 opt-in GTK/X11 tests, including native Unix sockets.
+The rotating-ticket integration check on **2026-10-15** runs **56 tests**:
+43 non-GUI tests and 13 opt-in GTK/X11 tests, including native Unix sockets.
 
 Run pure tests without a desktop session:
 
@@ -200,7 +204,7 @@ Run pure tests without a desktop session:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-This discovers 50 tests, runs 39, and skips the 11 GTK checks. Run all 50 on an
+This discovers 56 tests, runs 43, and skips the 13 GTK checks. Run all 56 on an
 X11 desktop with the system GTK/Python dependencies installed:
 
 ```sh
@@ -229,7 +233,8 @@ Notification contents stay in the local SQLite store. Its directory is mode
 `0700` and the database is mode `0600`. Display fields, action identifiers,
 desktop identity, and read state are retained; arbitrary hints and sender PIDs
 are not. The known Walite activation hint is retained privately with its record
-until its first attempt, retention or clearing; it contains no stable ChatID.
+until consumption/rotation, expiry rejection, retention or clearing. A v2
+successor replaces it in that same record; neither contains a stable ChatID.
 Do not attach private history or real message screenshots to issues.
 
 ## Uninstall

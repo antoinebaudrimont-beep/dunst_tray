@@ -273,6 +273,65 @@ class TrayStateTests(unittest.TestCase):
         self.assertEqual(labels, ["Open discussion"])
         card.destroy()
 
+    def test_v2_successive_clicks_preserve_controls_and_independent_conversations(self):
+        import time
+        from dunst_tray.walite import parse_activation, WaliteActivationResult
+        from test_walite import hint
+        for index, ticket in enumerate(("a", "c")):
+            self.history.add(replace(
+                notification("walite"), received_at=index + 1,
+                walite_activation=parse_activation(hint(
+                    version=2, activation_id=ticket * 64,
+                    expires_at=int(time.time()) + 3600,
+                )),
+            ))
+        rows = [item.id for item in self.history.all()]
+        used = []
+
+        def navigate(metadata):
+            self.assertNotIn(metadata.activation_id, used)
+            used.append(metadata.activation_id)
+            successor = replace(metadata, activation_id=str(len(used)) * 64)
+            return WaliteActivationResult(successor, True)
+
+        with patch.object(self.tray.walite_navigation, "send", side_effect=navigate), \
+                patch.object(self.tray.walite_navigation, "availability",
+                             return_value=(True, "Request discussion")), \
+                patch.object(self.tray.walite, "find_window", return_value="0x123"), \
+                patch.object(self.tray.walite, "raise_window") as focus:
+            for row_id in rows * 2:
+                stored = next(item for item in self.history.all() if item.id == row_id)
+                self.tray._open_walite_discussion(stored)
+                # A queued event still holding the consumed ticket cannot replay.
+                self.tray._open_walite_discussion(stored)
+                self.assertTrue(all(item.walite_activation for item in self.history.all()))
+                card = self.tray.groups_box.get_children()[0]
+                for message in card.messages.get_children():
+                    controls = message.get_children()[-1].get_children()[-1]
+                    self.assertTrue(any(child.get_label() == "Open discussion"
+                                        and child.get_sensitive()
+                                        for child in controls.get_children()))
+            self.assertEqual(focus.call_count, 4)
+        self.assertEqual(self.history.count(), 2)
+        self.assertEqual(self.history.unread_count(), 2)
+
+    def test_v2_queue_busy_preserves_fresh_ticket_without_focus(self):
+        import time
+        from dunst_tray.walite import parse_activation, WaliteActivationResult
+        from test_walite import hint
+        old = parse_activation(hint(version=2, expires_at=int(time.time()) + 3600))
+        new = replace(old, activation_id="b" * 64)
+        self.history.add(replace(notification("walite"), walite_activation=old))
+        with patch.object(self.tray.walite_navigation, "send",
+                          return_value=WaliteActivationResult(new, False)), \
+                patch.object(self.tray.walite, "raise_window") as focus, \
+                patch.object(self.tray, "_error") as error:
+            self.tray._open_walite_discussion(self.history.latest())
+            focus.assert_not_called()
+            error.assert_called_once()
+        self.assertEqual(self.history.latest().walite_activation, new)
+        self.assertEqual(self.history.count(), 1)
+
     def test_failed_discussion_transport_does_not_focus_or_change_history(self):
         from dunst_tray.walite import parse_activation
         from test_walite import hint

@@ -1,4 +1,4 @@
-"""Private, one-way Walite discussion activation; no ChatIDs or subprocess IPC."""
+"""Private Walite activation with one-use v1 and rotating v2 capabilities."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import re
 import socket
 import stat
 import struct
+import time
 from dataclasses import dataclass, field
 
 
@@ -17,12 +18,23 @@ class WaliteActivation:
 
     activation_socket: str = field(repr=False)
     activation_id: str = field(repr=False)
+    version: int = field(default=1, repr=False)
+    expires_at: int | None = field(default=None, repr=False)
 
     def record_json(self) -> str:
-        return json.dumps({
-            "version": 1, "activation_socket": self.activation_socket,
+        data = {
+            "version": self.version, "activation_socket": self.activation_socket,
             "activation_id": self.activation_id,
-        }, separators=(",", ":"))
+        }
+        if self.version == 2:
+            data["expires_at"] = self.expires_at
+        return json.dumps(data, separators=(",", ":"))
+
+
+@dataclass(frozen=True, slots=True)
+class WaliteActivationResult:
+    activation: WaliteActivation = field(repr=False)
+    queued: bool
 
 
 class WaliteActivationError(RuntimeError):
@@ -39,18 +51,25 @@ def _unique_object(pairs):
 
 
 def parse_activation(value) -> WaliteActivation | None:
-    """Accept only the documented v1 hint; ignore malformed/unknown metadata."""
+    """Accept only documented v1/v2 hints; ignore unknown/malformed metadata."""
     if not isinstance(value, str):
         return None
     try:
         if len(value.encode("utf-8")) > 1024:
             return None
         data = json.loads(value, object_pairs_hook=_unique_object)
-        if not isinstance(data, dict) or set(data) != {
-            "version", "activation_socket", "activation_id",
-        }:
+        if not isinstance(data, dict):
             return None
-        if type(data["version"]) is not int or data["version"] != 1:
+        version = data.get("version")
+        if type(version) is not int or version not in (1, 2):
+            return None
+        keys = {"version", "activation_socket", "activation_id"}
+        if version == 2:
+            keys.add("expires_at")
+            expiry = data.get("expires_at")
+            if type(expiry) is not int or not 0 < expiry < 2**63:
+                return None
+        if set(data) != keys:
             return None
         endpoint, ticket = data["activation_socket"], data["activation_id"]
         if not isinstance(endpoint, str) or not isinstance(ticket, str):
@@ -65,13 +84,13 @@ def parse_activation(value) -> WaliteActivation | None:
             return None
         if not re.fullmatch(r"[0-9a-f]{64}", ticket):
             return None
-        return WaliteActivation(endpoint, ticket)
+        return WaliteActivation(endpoint, ticket, version, data.get("expires_at"))
     except (ValueError, TypeError, UnicodeError, RecursionError):
         return None
 
 
 class WaliteActivationClient:
-    """Validate a same-user private Unix socket, write one object, then EOF."""
+    """Validate a private Unix peer; never retry/replay a consumed capability."""
 
     def __init__(self, timeout: float = 0.5):
         self.timeout = timeout
@@ -114,6 +133,11 @@ class WaliteActivationClient:
         try:
             descriptor, _basename, _info = self._open_endpoint(metadata)
             os.close(descriptor)
+            if (metadata.version == 2
+                    and metadata.expires_at <= time.time()):
+                return False, (
+                    "Walite discussion link has expired. Show app is unchanged."
+                )
             return True, (
                 "Request this discussion in the running Walite instance. "
                 "Walite may ignore requests while composing or showing a dialog."
@@ -121,10 +145,13 @@ class WaliteActivationClient:
         except WaliteActivationError as error:
             return False, str(error)
 
-    def send(self, metadata: WaliteActivation) -> None:
-        """Transport success is not an acknowledgment of chat selection."""
+    def send(self, metadata: WaliteActivation) -> WaliteActivationResult | None:
+        """V2 acknowledges queue admission, not actual TUI selection."""
+        deadline = time.monotonic() + self.timeout
         descriptor, basename, original = self._open_endpoint(metadata)
         try:
+            if metadata.version == 2 and metadata.expires_at <= time.time():
+                raise WaliteActivationError("Walite discussion link has expired.")
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
                 connection.settimeout(self.timeout)
                 # Pin the validated directory so renaming/replacing its path
@@ -145,14 +172,60 @@ class WaliteActivationClient:
                 ):
                     raise WaliteActivationError("Endpoint identity changed.")
                 payload = json.dumps({
-                    "version": 1, "activation_id": metadata.activation_id,
+                    "version": metadata.version,
+                    "activation_id": metadata.activation_id,
                 }, separators=(",", ":")).encode("utf-8")
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise WaliteActivationError("Walite request timed out.")
+                connection.settimeout(remaining)
                 connection.sendall(payload)
                 connection.shutdown(socket.SHUT_WR)
-                # No read, acknowledgment, retry, process launch or fallback.
-        except (OSError, ValueError, TypeError, WaliteActivationError):
+                if metadata.version == 2:
+                    return self._read_rotation(connection, metadata, deadline)
+                # V1 never reads a response. No retries/launch/fallback in either.
+        except WaliteActivationError:
+            raise
+        except (OSError, ValueError, TypeError, RecursionError):
             raise WaliteActivationError(
                 "Could not send the Walite discussion request."
             ) from None
         finally:
             os.close(descriptor)
+
+    @staticmethod
+    def _read_rotation(connection, metadata, deadline):
+        data = bytearray()
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise WaliteActivationError("Walite response timed out.")
+            connection.settimeout(remaining)
+            chunk = connection.recv(1025 - len(data))
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > 1024:
+                raise WaliteActivationError("Invalid Walite response.")
+        value = json.loads(bytes(data).decode("utf-8"),
+                           object_pairs_hook=_unique_object)
+        if (not isinstance(value, dict) or type(value.get("version")) is not int
+                or value["version"] != 2):
+            raise WaliteActivationError("Invalid Walite response.")
+        if value == {"version": 2, "status": "unavailable"}:
+            raise WaliteActivationError(
+                "Walite discussion link is unavailable. It may have expired."
+            )
+        if (set(value) != {"version", "status", "activation_id", "expires_at"}
+                or value["status"] not in ("queued", "busy")):
+            raise WaliteActivationError("Invalid Walite response.")
+        renewed = parse_activation(json.dumps({
+            "version": 2, "activation_socket": metadata.activation_socket,
+            "activation_id": value["activation_id"],
+            "expires_at": value["expires_at"],
+        }))
+        if (renewed is None or renewed.activation_id == metadata.activation_id
+                or renewed.expires_at != metadata.expires_at
+                or renewed.expires_at <= time.time()):
+            raise WaliteActivationError("Invalid Walite ticket rotation.")
+        return WaliteActivationResult(renewed, value["status"] == "queued")

@@ -1,4 +1,4 @@
-// Opt-in fixture for Walite commit 77459fd, copied into an isolated source tree.
+// Opt-in fixture for Walite's rotating-ticket v2, in an isolated source tree.
 // Adapted from whatsapp-terminal/walite, cmd/walite/linux_notification_manual_test.go,
 // TestLinuxNotificationManualFixture (MIT, Copyright 2026 Antoine Baudrimont).
 // Adds the production ticket receiver and content-free real-screen observation.
@@ -97,7 +97,7 @@ func TestDunstTrayNavigationFixture(t *testing.T) {
 	defer actions.stop()
 	actions.bindChatActivation(receiver)
 	triggers := make(chan os.Signal, 8)
-	signal.Notify(triggers, syscall.SIGUSR1, syscall.SIGUSR2)
+	signal.Notify(triggers, syscall.SIGUSR1, syscall.SIGUSR2, syscall.SIGALRM)
 	defer signal.Stop(triggers)
 	producer, stop := context.WithCancel(ctx)
 	done := make(chan struct{})
@@ -108,6 +108,18 @@ func TestDunstTrayNavigationFixture(t *testing.T) {
 			case <-producer.Done():
 				return
 			case trigger := <-triggers:
+				if trigger == syscall.SIGALRM {
+					// Synthetic fault injection only: test actual server expiry
+					// without changing production lifetime or waiting 24 hours.
+					receiver.mu.Lock()
+					for ticket, entry := range receiver.tickets {
+						entry.expiresAt = time.Now().Add(-time.Second)
+						receiver.tickets[ticket] = entry
+					}
+					receiver.mu.Unlock()
+					_ = os.WriteFile(filepath.Join(directory, "expiry.ready"), []byte("expired"), 0o600)
+					continue
+				}
 				id, label := "fixture-direct@lid", "Direct"
 				if trigger == syscall.SIGUSR2 {
 					id, label = "fixture-group@g.us", "Group"
@@ -128,6 +140,9 @@ func TestDunstTrayNavigationFixture(t *testing.T) {
 		t.Fatal("fixture pid unavailable")
 	}
 	defer os.Remove(filepath.Join(directory, "fixture.pid"))
+	if err := os.WriteFile(filepath.Join(directory, "fixture.window"), []byte(os.Getenv("WINDOWID")), 0o600); err != nil {
+		t.Fatal("fixture window unavailable")
+	}
 	initial := tui.InitialState{Chats: []tui.InitialChat{
 		{ID: "fixture-direct@lid", Title: "Fixture Direct", Messages: []tui.InitialMessage{
 			{ID: "initial-direct", Text: "SYNTHETIC-DIRECT-CONTENT", BodyRetained: true, SentAt: time.Now()},

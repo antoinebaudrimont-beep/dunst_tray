@@ -3,6 +3,68 @@
 Date: 2026-10-15  
 Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
+## Repeatable navigation, rotating-ticket v2 — latest task
+
+The user reports that real WhatsApp navigation works and Xfce startup after a
+reboot is verified. These are **user-reported acceptance**, not a fresh reboot
+or private-account test performed by this agent. Earlier v1 results below are
+historical; new notifications use the coordinated v2 contract in `WALITE.md`.
+
+### Automated/source validation
+
+- **56 tray tests pass**: 43 non-GUI/native-socket checks and 13 opt-in GTK
+  checks. New coverage verifies fixed-expiry fresh rotation, malformed/oversized/
+  duplicate/trailing/unavailable responses, rejected unchanged successors,
+  expiry, restart persistence, stale events and clear/row-ID-reuse protection.
+- GTK covers repeated independent records with visible reusable controls, no
+  stale-ticket replay, generic focus independence, busy responses retaining the
+  fresh capability without focus, and existing history/unread/DND/settings.
+  The credential test mock was isolated from the listener's native socket
+  factory to avoid a shared-module mocking race; the complete rerun passes.
+- Walite `5ad0b96` passes `go vet ./...`, `go test ./...`, `go test -race ./...`.
+  New tests cover repeated production-TUI direct/group selections, one-use
+  rotation/replay rejection, version downgrade prevention, absolute expiry,
+  bounded FIFO eviction without promotion, busy queue renewal, instance and
+  restart isolation, and response privacy. No WhatsApp connection is made.
+- Python compilation, Go formatting, shell syntax and diff checks pass.
+
+### Actual X11 acceptance (offline synthetic Walite)
+
+Ran the expanded `scripts/check_walite_live.py` against the candidate tray and
+an isolated real-terminal Walite fixture built with the committed production
+receiver/sender/TUI. Normal applications were gracefully stopped to exclude
+fixtures from normal history. No real-account client/database was constructed.
+
+- One older group and one newer direct notification were each clicked repeatedly
+  (including consecutive same-chat clicks) and alternated. Each produced a fresh
+  ticket with identical expiry; controls remained enabled and both history rows
+  survived. Real rendered synthetic conversation bodies and X11 active-window
+  checks passed, not merely socket writes.
+- Reconstructed tray/monitor/history from the same private SQLite file and
+  successfully clicked those **same** notifications again.
+- Generic Show app focused without navigation or capability consumption.
+  Both independent controls fit the real panel at 280px.
+- A typed unsent draft and a settings modal prevented disruptive switching.
+  After leaving each protected state, the same group notification worked again,
+  followed by the same direct notification. No message was sent.
+- Injected expiry only into the synthetic fixture's in-memory map (SIGALRM),
+  without shortening production TTL or claiming to wait 24 hours. The expired
+  capability could not navigate, renew or focus Walite; notification rows stayed.
+  Local-clock expiry is additionally covered by native-socket unit tests.
+- Stopped the owning fixture; the remaining stored action became disabled.
+  Launched a fresh offline fixture instance: old history stayed disabled, while
+  a new notification opened its group conversation correctly. All rows remained
+  retained and DND remained level 0; no daemon history clearing occurred.
+- The complete final live run exited successfully. The bounded one-use and
+  crash/ambiguous-response limitations are explicit in `WALITE.md`; v1 records
+  cannot gain repeatability or recover consumed tickets.
+
+### Deployment
+
+Pending final installed-package verification. The local-only Walite candidate
+is `v1.2.1-local.5ad0b96`; previous code versions and all user data are retained.
+No push, tag or release is authorized or performed.
+
 ## Walite ticket integration — current task
 
 Implemented and locally installed from tray commit `6a62761`; the follow-up

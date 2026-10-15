@@ -1,5 +1,84 @@
 # Walite discussion navigation
 
+## Current contract: version 2, rotating one-use tickets
+
+Walite and dunst_tray now coordinate a v2 extension to
+Walite's `docs/dunst-tray-integration.md` on `fix/notification-chat-navigation`.
+The former v1 integration is preserved below as historical compatibility detail.
+
+New string `x-walite-activation` hints contain exactly `version:2`,
+`activation_socket`, `activation_id` (64 lowercase hex) and `expires_at`
+(positive integer Unix UTC timestamp). Every explicit **Open discussion** click
+sends exactly `{"version":2,"activation_id":"current ticket"}` through the
+same private peer-verified socket, shuts down writing for EOF, and reads one
+bounded JSON response through EOF. It never sends a stable ChatID, reusable
+credential, notification text or command. All existing endpoint ownership/mode,
+symlink, inode/device and peer UID checks still apply.
+
+A valid capability is atomically **consumed once** and replaced with a new
+random ticket for the same original private ChatID. Response fields are exactly
+`version:2`, `status:"queued"`, `activation_id` (fresh ticket), and `expires_at`
+(unchanged). A full queue uses `status:"busy"`, also with a fresh ticket. The
+tray stores that successor but does not focus on `busy`. `queued` confirms only
+bounded TUI admission, not visible selection; draft/sending/paste/modal protection
+still drops disruptive requests. The successor allows another explicit click
+after the protected state ends. Nothing sends a WhatsApp message automatically.
+
+The tray atomically claims the current record before sending and saves the
+validated successor only into that exact still-claimed record. It then rebuilds
+the control using the new ticket. Old queued widget events cannot replay; clear,
+retention or row-ID reuse cannot resurrect a record. History, grouping, unread,
+DND and appearance are not changed. **Show app** neither consumes nor renews.
+
+Server response `{"version":2,"status":"unavailable"}` means expired, evicted,
+consumed, unknown or wrong-instance. No identity or successor is disclosed. The
+tray never raises Walite on that response or a known transport failure. Response
+validation rejects duplicate/extra keys, wrong types/versions, identity-bearing
+fields, unchanged tickets, altered expiry, overlong/trailing data and malformed
+UTF-8/JSON. Responses are at most 1024 bytes and the entire exchange has a
+0.5-second budget. No automatic retries or process launch occurs.
+
+### Lifetime, restart and failure behavior
+
+- At most **32 notification chains**, preserving initial FIFO priority across
+  clicks; receiving newer notifications can evict older chains.
+- **24-hour absolute expiry from original issuance**, never extended on clicks.
+  Local known expiry disables without sending. Server rejection invalidates
+  only navigation metadata; the notification and generic Show app remain.
+- Restarting the tray preserves a completed renewal in its private notification
+  record, while the owning Walite instance and chain remain valid.
+- Restarting Walite loses its in-memory chains and changes its endpoint. Old
+  history cannot target the replacement instance. A fresh notification supplies
+  a new chain; there is no stable-ID recovery or automatic rebinding.
+- A lost/invalid/timed-out response or crash before persistence is ambiguous:
+  the old ticket may have been consumed. **Fail closed** and disable that
+  record's navigation, keeping history/Show app; never replay to recover.
+- V1 records retain their old **one-use** behavior. Already consumed/missing
+  tickets cannot be recovered or upgraded. New notifications are needed for
+  repeatable v2 navigation. V1/v2 capabilities cannot be used across versions.
+- Native Dunst Open remains independent. Popup expiry does not expire a chain.
+  Exact-instance focusing with multiple marked terminals remains unsupported:
+  send only to the exact socket, but never guess a window to raise.
+
+### Current tests and live reproduction
+
+The normal suite adds repeated rotation, fixed expiry, response validation,
+durable record renewal, stale events and clear/ID-reuse protection. Walite tests
+exercise repeated direct/group real-TUI selections, rejected replay/version
+downgrade, expiry/eviction, queue saturation and restart/instance isolation.
+
+Use the opt-in Go fixture and X11 script described below with the **coordinated
+v2 Walite source**, rather than the original commit. The driver physically
+clicks the same two notifications consecutively and alternately, reconstructs
+the tray from SQLite, and verifies reuse after protected draft/modal interactions.
+`SIGALRM` injects expiry only into the synthetic fixture's map, without changing
+production TTL. Pass `--fixture-binary ABSOLUTE_FIXTURE_BINARY` to also launch
+a new offline fixture instance and verify that old history stays disabled while
+new notifications work. No WhatsApp client/account/database is constructed.
+Actual executed results belong in `VALIDATION.md`.
+
+## Legacy v1 implementation notes (historical)
+
 Compatible producer: Walite `fix/notification-chat-navigation`, commit
 `77459fd35542c42fb8422b0e5e700506e7e38109`. The originating contract is
 Walite's `docs/dunst-tray-integration.md` (MIT). This adapter implements the

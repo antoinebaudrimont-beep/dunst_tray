@@ -575,13 +575,24 @@ class TrayApplication:
         if (notification.app_name.casefold() != "walite"
                 or notification.walite_activation is None):
             return
-        if not self.history.take_walite_activation(notification):
+        claim = self.history.take_walite_activation(notification)
+        if claim is None:
             return
         try:
-            self.walite_navigation.send(notification.walite_activation)
+            result = self.walite_navigation.send(notification.walite_activation)
         except WaliteActivationError as error:
+            self.history.finish_walite_activation(notification.id, claim)
             self.refresh()
             self._error("Walite discussion request unavailable", str(error))
+            return
+        self.history.finish_walite_activation(
+            notification.id, claim, result.activation if result else None,
+        )
+        if result is not None and not result.queued:
+            self.refresh()
+            self._error(
+                "Walite is busy", "Try Open discussion again when Walite is ready.",
+            )
             return
         # Focus only after known transport failures have been ruled out. With
         # multiple/unmarked windows, still route to the notification's exact
