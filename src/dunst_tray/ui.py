@@ -20,6 +20,7 @@ from .activation import (
 from .applications import ApplicationCatalog
 from .dunst import DunstControlError, DunstController
 from .model import Notification
+from .tray_icon import render_bell
 
 if TYPE_CHECKING:
     from .config import AppConfig
@@ -230,18 +231,28 @@ class TrayApplication:
         self.desktop = DesktopWindowActivator(self.applications)
         self.actions = WindowActions(self.walite, self.desktop)
         self.quit_callback = quit_callback
-        self.unread = 0
+        self.unread = self.history.unread_count()
+        self._icon_size = 22
+        self._tray_color_widget = Gtk.Label()
+        self._dunst_paused: bool | None = None
         self._syncing_pause = False
 
         self._install_css()
         self.window = self._build_window()
-        self.status_icon = Gtk.StatusIcon.new_from_icon_name(
-            "preferences-system-notifications-symbolic"
-        )
+        self.status_icon = Gtk.StatusIcon()
         self.status_icon.set_title("Dunst Tray")
         self.status_icon.set_visible(True)
         self.status_icon.connect("activate", self.toggle_center)
         self.status_icon.connect("popup-menu", self._show_menu)
+        self.status_icon.connect("size-changed", self._tray_size_changed)
+        settings = Gtk.Settings.get_default()
+        self._theme_signals = []
+        if settings:
+            for setting in ("gtk-theme-name", "gtk-application-prefer-dark-theme"):
+                signal_id = settings.connect(
+                    f"notify::{setting}", lambda *_args: self._update_tray_icon()
+                )
+                self._theme_signals.append((settings, signal_id))
         self.menu, self.enabled_item = self._build_menu()
         self.refresh()
         self.refresh_dunst_state()
@@ -359,15 +370,35 @@ class TrayApplication:
         if self.window.get_visible():
             self.window.hide()
             return
-        self.unread = 0
+        self.history.mark_all_read()
         self.refresh()
         self._position_window()
         self.window.show_all()
         self._position_window()
-        self.status_icon.set_tooltip_text("Dunst Tray — no unread notifications")
+
+    def _tray_size_changed(self, _icon, size: int) -> bool:
+        self._icon_size = size
+        self._update_tray_icon()
+        return True
+
+    def _update_tray_icon(self) -> None:
+        color = self._tray_color_widget.get_style_context().get_color(
+            Gtk.StateFlags.NORMAL
+        )
+        self.status_icon.set_from_pixbuf(render_bell(
+            self._icon_size, self.unread > 0, (color.red, color.green, color.blue),
+        ))
+        dnd = "unknown" if self._dunst_paused is None else (
+            "on" if self._dunst_paused else "off"
+        )
+        self.status_icon.set_tooltip_text(
+            f"Dunst Tray — {self.unread} unread, {self.history.count()} retained; "
+            f"Do Not Disturb {dnd}"
+        )
 
     def refresh(self) -> bool:
         self.actions.reset()
+        self.unread = self.history.unread_count()
         for child in self.groups_box.get_children():
             self.groups_box.remove(child)
         groups = self.history.grouped()
@@ -387,13 +418,11 @@ class TrayApplication:
                 )
                 self.groups_box.pack_start(card, False, False, 0)
         self.groups_box.show_all()
-        self.status_icon.set_tooltip_text(
-            f"Dunst Tray — {self.unread} unread, {self.history.count()} retained"
-        )
+        self._update_tray_icon()
         return False
 
     def notification_received(self) -> bool:
-        self.unread += 1
+        # Arrivals while open stay unread until the next explicit opening.
         self.refresh()
         return False
 
@@ -416,17 +445,13 @@ class TrayApplication:
             self._syncing_pause = True
             self.enabled_item.set_active(enabled)
             self.enabled_item.set_sensitive(True)
-            icon = (
-                "preferences-system-notifications-symbolic"
-                if enabled
-                else "notifications-disabled-symbolic"
-            )
-            self.status_icon.set_from_icon_name(icon)
+            self._dunst_paused = not enabled
         except DunstControlError:
             self.enabled_item.set_sensitive(False)
-            self.status_icon.set_from_icon_name("dialog-warning-symbolic")
+            self._dunst_paused = None
         finally:
             self._syncing_pause = False
+        self._update_tray_icon()
 
     def _toggle_notifications(self, item: Gtk.CheckMenuItem) -> None:
         if self._syncing_pause:
@@ -477,7 +502,6 @@ class TrayApplication:
             self.dunst.clear_history()
         except DunstControlError as error:
             LOGGER.warning("Local history cleared; Dunst history failed: %s", error)
-        self.unread = 0
         self.refresh()
 
     def _show_settings(self, _item: Gtk.MenuItem) -> None:
@@ -510,6 +534,8 @@ class TrayApplication:
         dialog.destroy()
 
     def destroy(self) -> None:
+        for settings, signal_id in self._theme_signals:
+            settings.disconnect(signal_id)
         self.status_icon.set_visible(False)
         self.window.destroy()
 

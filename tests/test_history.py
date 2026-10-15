@@ -95,6 +95,36 @@ class HistoryTests(unittest.TestCase):
         self.store = HistoryStore(self.store.path, limit=5)
         self.assertEqual(self.store.latest().desktop_entry, "org.example.App")
 
+    def test_unread_survives_restart_and_explicit_review(self):
+        self.store.add(notification(1))
+        self.store.add(notification(2))
+        self.assertEqual(self.store.unread_count(), 2)
+        self.store.close()
+        self.store = HistoryStore(self.store.path, limit=5)
+        self.assertEqual(self.store.unread_count(), 2)
+        self.store.mark_all_read()
+        self.assertEqual(self.store.unread_count(), 0)
+        self.assertFalse(self.store.latest().unread)
+        self.store.add(notification(3))
+        self.assertEqual(self.store.unread_count(), 1)
+        self.store.clear()
+        self.assertEqual(self.store.unread_count(), 0)
+
+    def test_unread_tracks_retained_rows_and_old_history_migrates_as_read(self):
+        for number in range(20):
+            self.store.add(notification(number, "walite"))
+        self.assertEqual(self.store.unread_count(), 5)
+        self.store._connection.execute(
+            "ALTER TABLE notifications DROP COLUMN unread"
+        )
+        self.store._connection.commit()
+        self.store.close()
+        self.store = HistoryStore(self.store.path, limit=5)
+        self.assertEqual(self.store.count(), 5)
+        self.assertEqual(self.store.unread_count(), 0)
+        self.store.add(notification(21))
+        self.assertEqual(self.store.unread_count(), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

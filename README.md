@@ -23,6 +23,8 @@ mouse behavior still need a manual desktop pass; see
 ## Features
 
 - Persistent `Gtk.StatusIcon` bell for XEmbed-compatible Xfce/i3 trays.
+- A single white dot indicates unread retained notifications and survives tray
+  restarts; Do Not Disturb does not change the bell or unread state.
 - Left click opens or hides a compact top-right notification center.
 - Right-click menu for Do Not Disturb, opening the center, replaying the latest
   Dunst notification, clearing history, settings information, and quitting.
@@ -44,7 +46,7 @@ mouse behavior still need a manual desktop pass; see
 Install repository packages on Debian/MX Linux:
 
 ```sh
-sudo apt install dunst python3 python3-gi gir1.2-gtk-3.0 wmctrl x11-utils
+sudo apt install dunst python3 python3-gi python3-cairo python3-gi-cairo gir1.2-gtk-3.0 wmctrl x11-utils
 ```
 
 `dunstctl` is included with Dunst. `notify-send` from `libnotify-bin` is useful
@@ -129,6 +131,11 @@ identity are saved; sender PID and arbitrary D-Bus hints are not persisted.
 
 Messages inside each application group are newest first. The complete original
 summary and body strings remain stored even while the group is collapsed.
+
+Opening the center acknowledges all currently retained messages. New messages
+received while it is open remain unread until the next explicit opening;
+closing alone does not acknowledge them. Clearing history resets unread state.
+Existing history migrates as read on upgrade; new captures start unread.
 
 ## How capture works
 

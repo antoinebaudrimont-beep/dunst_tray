@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from dataclasses import replace
 from pathlib import Path
 
@@ -35,7 +36,8 @@ class IconTests(unittest.TestCase):
     def test_absolute_png_and_stale_path_desktop_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
             png = str(Path(directory) / "synthetic.png")
-            pixbuf = self.Pixbuf.new(self._colorspace(), True, 8, 32, 32)
+            from dunst_tray.ui import GdkPixbuf
+            pixbuf = self.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, 32, 32)
             pixbuf.fill(0x3399FFFF)
             pixbuf.savev(png, "png", [], [])
             item = replace(notification("Synthetic"), app_icon=png)
@@ -48,13 +50,83 @@ class IconTests(unittest.TestCase):
             self.assertEqual(self.image(item).get_icon_name()[0],
                              "utilities-terminal")
 
-    def _colorspace(self):
-        from dunst_tray.ui import GdkPixbuf
-        return GdkPixbuf.Colorspace.RGB
-
     def test_synthetic_future_aerc_icon_uses_generic_desktop_metadata(self):
         self.catalog.applications.append(DesktopApplication(
             "aerc", "aerc", "utilities-terminal", frozenset({"aerc"}),
         ))
         image = self.image(replace(notification("aerc"), desktop_entry="aerc"))
         self.assertEqual(image.get_icon_name()[0], "utilities-terminal")
+
+    def test_clean_bell_and_single_white_dot_at_panel_sizes(self):
+        from dunst_tray.tray_icon import render_bell
+        for size in (16, 22, 24, 32):
+            for color in ((0.12, 0.12, 0.12), (0.95, 0.95, 0.95)):
+                clean = render_bell(size, False, color)
+                unread = render_bell(size, True, color)
+                self.assertEqual(clean.get_width(), size)
+                self.assertEqual(unread.get_height(), size)
+                self.assertNotEqual(clean.get_pixels(), unread.get_pixels())
+                x, y = round(size * 19.3 / 24), round(size * 4.7 / 24)
+                offset = y * unread.get_rowstride() + x * 4
+                self.assertEqual(unread.get_pixels()[offset:offset + 3],
+                                 b"\xff\xff\xff")
+
+
+class FakeDunst:
+    def __init__(self):
+        self.paused = False
+
+    def is_paused(self):
+        return self.paused
+
+    def set_paused(self, paused):
+        self.paused = paused
+
+    def clear_history(self):
+        pass
+
+
+@unittest.skipUnless(GUI, "opt-in GTK/X11 checks")
+class TrayStateTests(unittest.TestCase):
+    def setUp(self):
+        from dunst_tray.config import AppConfig
+        from dunst_tray.history import HistoryStore
+        from dunst_tray.ui import TrayApplication
+        self.temporary = tempfile.TemporaryDirectory()
+        self.folder = Path(self.temporary.name)
+        self.history = HistoryStore(self.folder / "history.sqlite3")
+        self.dunst = FakeDunst()
+        with patch("dunst_tray.ui.ApplicationCatalog",
+                   return_value=ApplicationCatalog([])):
+            self.tray = TrayApplication(
+                AppConfig(), self.folder / "config.ini", self.history,
+                self.dunst, lambda: None,
+            )
+
+    def tearDown(self):
+        self.tray.destroy()
+        self.history.close()
+        self.temporary.cleanup()
+
+    def test_arrivals_review_dnd_and_window_lifecycle(self):
+        self.history.add(notification("Synthetic App"))
+        self.tray.notification_received()
+        self.assertEqual(self.tray.unread, 1)
+        dotted = self.tray.status_icon.get_pixbuf().get_pixels()
+        self.dunst.paused = True
+        self.tray.refresh_dunst_state()
+        self.assertEqual(self.tray.status_icon.get_pixbuf().get_pixels(), dotted)
+        self.assertEqual(self.tray.unread, 1)
+        self.tray.toggle_center()
+        self.assertEqual(self.history.unread_count(), 0)
+        # Arrivals while open remain unread until a subsequent explicit review.
+        self.history.add(notification("Synthetic App"))
+        self.tray.notification_received()
+        self.assertEqual(self.tray.unread, 1)
+        self.tray.toggle_center()
+        self.assertEqual(self.tray.unread, 1)
+        self.tray.toggle_center()
+        self.assertEqual(self.tray.unread, 0)
+        self.tray._hide_window()
+        self.assertTrue(self.tray.status_icon.get_visible())
+        self.assertFalse(self.tray.window.get_visible())

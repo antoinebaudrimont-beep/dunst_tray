@@ -21,6 +21,7 @@ class Notification:
     expire_timeout: int
     dunst_id: int | None = None
     desktop_entry: str = ""
+    unread: bool = True
 
     @property
     def has_default_action(self) -> bool:

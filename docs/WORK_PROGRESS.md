@@ -1,7 +1,7 @@
 # Work progress — resumable implementation
 
-Updated: 2026-10-15 10:10 CEST (Europe/Vienna).
-Branch: `main`. HEAD before phase A/B commit: `a21943a`.
+Updated: 2026-10-15 10:08 CEST (Europe/Vienna).
+Branch: `main`. HEAD before phase C commit: `9a0a15b`.
 Initial implementation baseline: `47f79f1`.
 Working tree was clean. No remote, publication, or release operation is planned.
 
@@ -25,14 +25,14 @@ Working tree was clean. No remote, publication, or release operation is planned.
 ## Phases and current status
 
 1. A/B: focused action/icon audit and synthetic future-aerc coverage — COMPLETE.
-2. C: persistent unread state; theme bell with a single white dot — NEXT.
-3. D: graphical panel settings and atomic persistence — pending.
+2. C: persistent unread state; theme bell with a single white dot — COMPLETE.
+3. D: graphical panel settings and atomic persistence — NEXT.
 4. E/F: full regression, isolated live X11 acceptance, install/restart — pending.
 
 ## Live evidence for this continuation
 
-- 24 pure unit tests pass; 3 opt-in GTK checks are skipped in default discovery
-  and pass when run with `DUNST_TRAY_GUI_TESTS=1`.
+- 26 pure unit tests pass; 5 opt-in GTK checks are skipped in default discovery
+  and all 5 pass with `DUNST_TRAY_GUI_TESTS=1` (31 total).
 - Live X11 focus confirmed with `_NET_ACTIVE_WINDOW` after activation: ChatGPT
   `0x6000004`, Task Manager `0x5600007` (additional generic application), and
   Walite `0x580000e`. Restored focus to ChatGPT afterward.
@@ -44,16 +44,33 @@ Working tree was clean. No remote, publication, or release operation is planned.
   its future-notification scenario was tested only with synthetic metadata.
 Reboot/login and i3 checks remain UNVERIFIED; do not reboot the user's desktop.
 
+## Phase C behavior and evidence
+
+- Added persisted unread flags, count, and explicit acknowledgement. Existing
+  rows migrate as read; newly captured rows default unread. Restart, retention,
+  clear, and read/new-arrival transitions pass pure storage tests.
+- Opening the center acknowledges all currently retained rows. New arrivals
+  while it is open remain unread until a later explicit opening; closing never
+  creates or acknowledges unread rows. DND is independent.
+- Bell uses theme foreground with contrast edging, no exclamation or number.
+  A white dot is composed in memory, cached by size/color/state. No polling or
+  recurring image-file generation. Requested sizes 16/22/24/32 pass pixel and
+  dimensional checks for light and dark foregrounds.
+- GTK lifecycle/DND/read transitions pass using isolated synthetic history and
+  a fake Dunst controller. Actual tray/panel acceptance and visual contrast
+  review remain for the final live phase; no reboot/light-panel change claimed.
+
 ## Files changed / deployment
 
-Phase A/B changes: activation.py, ui.py, tests/test_activation.py,
-tests/test_gui.py, README, and this checkpoint. Unverified position-0 callbacks
+Phase A/B commit: `9a0a15b`. Unverified position-0 callbacks
 are no longer offered; **Show app** describes verified application focus.
 Missing/ambiguous targets are disabled with an explanatory tooltip. Clicks
 still revalidate the target. ChatGPT/Walite adapters remain intact.
 Installed application remains at `47f79f1` until final stable deployment.
 Config backup made at
 `~/.config/dunst-tray/config.ini.before-appearance-20261015` (not in Git).
+Phase C files: model.py, history.py, tray_icon.py, ui.py, installer dependency
+check, README, tests/test_history.py, tests/test_gui.py, and this checkpoint.
 
 ## Exact next steps
 
@@ -64,8 +81,9 @@ git log -5 --oneline
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Begin phase C. Add an unread column with safe migration, store-level count and
-mark-read operations, then compose a theme-aware bell with one white dot in
-memory. Define opening-center/read behavior; DND must not affect unread. Add
-focused persistence and transition tests and GTK icon-render checks at
-16/22/24/32 px. Update this checkpoint and commit the working phase.
+Begin phase D. Extend validated configuration with opacity, radius and icon
+visibility; atomically persist Apply while preserving unrelated settings. Add
+compact GTK appearance controls with Apply/Cancel/Restore Defaults. Apply to the
+center immediately without changing Dunst/history, clamp both dimensions to
+monitor work area, and verify compositor clipping. Add focused tests, update
+this checkpoint and commit before final live acceptance/deployment.

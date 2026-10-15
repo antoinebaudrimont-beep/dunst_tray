@@ -57,6 +57,13 @@ class HistoryStore:
                     "ALTER TABLE notifications ADD COLUMN "
                     "desktop_entry TEXT NOT NULL DEFAULT ''"
                 )
+            if "unread" not in columns:
+                # Existing history has already been available for review. Do
+                # not turn an upgrade into an invented backlog of unread mail.
+                self._connection.execute(
+                    "ALTER TABLE notifications ADD COLUMN "
+                    "unread INTEGER NOT NULL DEFAULT 0"
+                )
 
     def add(self, notification: Notification) -> int:
         """Insert one notification and trim only the oldest excess rows."""
@@ -67,8 +74,8 @@ class HistoryStore:
                 INSERT INTO notifications (
                     received_at, app_name, replaces_id, app_icon, summary,
                     body, actions_json, urgency, expire_timeout, dunst_id,
-                    desktop_entry
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    desktop_entry, unread
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     notification.received_at,
@@ -82,6 +89,7 @@ class HistoryStore:
                     notification.expire_timeout,
                     notification.dunst_id,
                     notification.desktop_entry,
+                    int(notification.unread),
                 ),
             )
             row_id = int(cursor.lastrowid)
@@ -125,6 +133,7 @@ class HistoryStore:
                 int(row["dunst_id"]) if row["dunst_id"] is not None else None
             ),
             desktop_entry=str(row["desktop_entry"]),
+            unread=bool(row["unread"]),
         )
 
     def all(self) -> list[Notification]:
@@ -167,6 +176,19 @@ class HistoryStore:
             self._connection.execute("DELETE FROM notifications")
             self._connection.execute(
                 "DELETE FROM sqlite_sequence WHERE name = 'notifications'"
+            )
+
+    def unread_count(self) -> int:
+        with self._lock:
+            return int(self._connection.execute(
+                "SELECT COUNT(*) FROM notifications WHERE unread = 1"
+            ).fetchone()[0])
+
+    def mark_all_read(self) -> None:
+        """Acknowledge the currently retained snapshot, not future arrivals."""
+        with self._lock, self._connection:
+            self._connection.execute(
+                "UPDATE notifications SET unread = 0 WHERE unread = 1"
             )
 
     def close(self) -> None:
