@@ -33,6 +33,7 @@ done
 install -m 644 "$project_dir/pyproject.toml" "$app_dir/pyproject.toml"
 install -m 644 "$project_dir/README.md" "$app_dir/README.md"
 install -m 644 "$project_dir/CHANGELOG.md" "$app_dir/CHANGELOG.md"
+install -m 644 "$project_dir/LICENSE" "$app_dir/LICENSE"
 install -m 644 "$project_dir/assets/default-config.ini" "$app_dir/assets/default-config.ini"
 install -m 644 "$project_dir/docs/dunst-integration.conf" "$app_dir/docs/dunst-integration.conf"
 install -m 755 "$project_dir/assets/dunst-tray.in" "$bin_dir/dunst-tray"

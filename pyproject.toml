@@ -7,11 +7,13 @@ name = "dunst-tray"
 version = "0.1.0.dev0"
 description = "A lightweight GTK3 tray and grouped notification center for Dunst"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 authors = [{ name = "dunst-tray contributors" }]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Environment :: X11 Applications :: GTK",
+    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Topic :: Desktop Environment",

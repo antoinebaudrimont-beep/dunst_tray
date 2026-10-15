@@ -2,12 +2,11 @@
 
 Do not publish until the maintainer explicitly authorizes it.
 
-1. Confirm the license and add `LICENSE`.
-2. Complete the outstanding manual checks in `VALIDATION.md`.
-3. Replace the screenshot placeholder with sanitized synthetic content.
-4. Run tests and inspect `git status`, `git log`, and all tracked files.
-5. Create an empty GitHub repository without generated files.
-6. With explicit authorization, run:
+1. Complete the outstanding manual checks in `VALIDATION.md`.
+2. Replace the screenshot placeholder with sanitized synthetic content.
+3. Run tests and inspect `git status`, `git log`, and all tracked files.
+4. Create an empty GitHub repository without generated files.
+5. With explicit authorization, run:
 
    ```sh
    git remote add origin git@github.com:OWNER/dunst-tray.git

@@ -241,13 +241,11 @@ separate from GTK code, and use Conventional Commit messages.
 
 ## License
 
-No license file is committed yet. The maintainer was asked to confirm MIT before
-the license is finalized, as required by the project brief. Do not publish the
-repository until that choice is confirmed and a `LICENSE` file is added.
+Licensed under the MIT License. See [`LICENSE`](LICENSE).
 
 ## Future publication
 
 The repository is local-only. No GitHub repository, remote, release, or tag is
-created. After the license is confirmed and manual checks pass, publication can
-use the commands in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+created. After the remaining manual checks pass, publication can use the
+commands in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
