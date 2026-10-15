@@ -16,8 +16,8 @@ web server, browser runtime, or second notification daemon.
 
 This repository is pre-release (`0.1.0.dev0`). The backend, tray, grouped
 history, Dunst controls, installer, and automated tests are functional. Xfce
-live integration has been tested on the target machine. i3 and interactive
-mouse behavior still need a manual desktop pass; see
+live integration and the principal mouse paths have been tested on the target
+machine. i3 and login/autostart still need a manual desktop pass; see
 [`docs/VALIDATION.md`](docs/VALIDATION.md).
 
 ## Features

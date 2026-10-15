@@ -143,3 +143,17 @@ session-bus disconnection, long-duration resource behavior, real aerc
 notification integration, native private message callbacks, and deletion of real
 Dunst history. These were not inferred from fixture success.
 
+## Deployment verification — 2026-10-15 10:26 CEST
+
+Installed the validated payload `851cf9f` and restarted the identified tray
+instance. New PID 50439 holds the lock, owns the XEmbed bell, and started passive
+capture. Every installed Python file matches source. Config remains identical
+to its mode-0600 backup; the autostart entry remains present. The unread schema
+migration succeeded. Only aggregate notification counts were inspected.
+
+Visually checked the actual installed clean bell, then opened the appearance
+dialog via its real right-click Settings menu. The dialog belongs to PID 50439
+and loads the preserved effective values. Closed without saving. Dunst owner
+remains `:1.44`, pause level remains 0, and no Dunst config/history deletion was
+performed. Preview scripts/images and startup logs were removed afterward.
+

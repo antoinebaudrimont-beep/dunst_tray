@@ -1,7 +1,7 @@
 # Work progress — resumable implementation
 
-Updated: 2026-10-15 10:24 CEST (Europe/Vienna).
-Branch: `main`. HEAD before acceptance checkpoint: `2a315b7`.
+Updated: 2026-10-15 10:26 CEST (Europe/Vienna).
+Branch: `main`. HEAD before final deployment record: `851cf9f`.
 Initial implementation baseline: `47f79f1`.
 Working tree was clean. No remote, publication, or release operation is planned.
 
@@ -28,7 +28,7 @@ Working tree was clean. No remote, publication, or release operation is planned.
 2. C: persistent unread state; theme bell with a single white dot — COMPLETE.
 3. D: graphical panel settings and atomic persistence — COMPLETE.
 4. E/F: full regression and isolated live X11 acceptance — COMPLETE.
-5. Install/restart and final checkpoint — NEXT.
+5. Install/restart and final checkpoint — COMPLETE.
 
 ## Live evidence for this continuation
 
@@ -67,7 +67,9 @@ Phase A/B commit: `9a0a15b`. Unverified position-0 callbacks
 are no longer offered; **Show app** describes verified application focus.
 Missing/ambiguous targets are disabled with an explanatory tooltip. Clicks
 still revalidate the target. ChatGPT/Walite adapters remain intact.
-Installed application remains at `47f79f1` until final stable deployment.
+Installed runtime was upgraded from `47f79f1` after final acceptance; see the
+deployment record below. Runtime implementation is through `2a315b7`; tested
+deployment payload is `851cf9f` (subsequent commits only document deployment).
 Config backup made at
 `~/.config/dunst-tray/config.ini.before-appearance-20261015` (not in Git).
 Phase C files: model.py, history.py, tray_icon.py, ui.py, installer dependency
@@ -103,12 +105,13 @@ git log -5 --oneline
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Install the validated source with `./scripts/install.sh`, identify the actual
-running tray PID from its X11 window and instance-lock holder, stop only that
-PID, and launch `~/.local/bin/dunst-tray`. Compare all installed Python files
-with source, verify a new running PID and XEmbed bell, preserved config/backup,
-and unread schema/count without exposing notification text. Update this file
-and commit the final deployment record. No push/tag/reboot.
+Implementation and authorized deployment are complete. On resumption, read
+this file, inspect status/log, and run relevant tests before changing anything.
+Do not redo completed ChatGPT/Walite work or rerun disruptive live acceptance
+unless a new change justifies it. Remaining optional manual acceptance is
+listed as UNVERIFIED in docs/VALIDATION.md: login/reboot, i3, actual light panel,
+compositor-off, monitor hotplug, real aerc notifications, and long-duration use.
+No remote, push, tag, or reboot is authorized by this work.
 
 ## Final acceptance completed before deployment
 
@@ -132,3 +135,26 @@ and commit the final deployment record. No push/tag/reboot.
   In particular: no reboot/login/i3/light-panel/compositor-off/hotplug claim;
   aerc remains a synthetic future-compatibility fixture, and **Show app** is
   application focus rather than a private exact-message callback.
+
+## Final deployment record
+
+- Installed via `./scripts/install.sh` and restarted only the identified old
+  tray PID 48984. New running tray PID 50439 holds the instance lock, owns the
+  Dunst Tray XEmbed window, and logged passive capture started successfully.
+- All installed `src/dunst_tray/*.py` files compare byte-for-byte with source.
+  Config and backup remain mode 0600 and byte-identical; autostart entry remains
+  present at mode 0644. Existing user preferences were not replaced.
+- User database migration succeeded (unread column present). Only aggregate
+  counts were inspected: zero retained/unread at this check. No notification
+  text was printed, saved in Git, or included in screenshots.
+- Actual installed clean bell was captured window-only and visually checked.
+  Its real right-click menu opened **Notification Center Appearance**, verified
+  to belong to PID 50439; dialog displayed the preserved effective defaults
+  (380×680, 97%, radius 14, icons shown). Closed with Escape without saving.
+- Dunst owner still `:1.44`; pause level still 0. Dunst configuration and
+  history were not cleared or changed by deployment.
+- Temporary preview scripts, synthetic preview images, and startup logs were
+  cleaned up. Reusable synthetic checks remain in tests/ and
+  scripts/check_live.py; no runtime data or screenshots are tracked.
+- Stable phase commits: audit `9a0a15b`, unread `e644294`, appearance `2a315b7`,
+  final acceptance `851cf9f`. Original fixes `fab8a76` / `47f79f1` preserved.
