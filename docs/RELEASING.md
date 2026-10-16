@@ -38,7 +38,8 @@ python3 scripts/validate_source_install.py dist/first/dunst-tray-0.1.0-beta.1.ta
 
 The validator **never runs installers outside bubblewrap**; sandbox failure is
 fatal, with no fallback to the host. A private writable filesystem hides the
-normal home without reassigning HOME. Private XDG state, a read-only host root,
+normal home without reassigning HOME. Private XDG state, a private filesystem
+root with read-only system directories,
 private `/tmp`, `/run`, PID and network namespaces, and no display/session bus
 prevent access to installed applications, normal notification history or Dunst.
 Only disposable synthetic state is created and purged.

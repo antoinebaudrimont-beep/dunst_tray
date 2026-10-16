@@ -10,8 +10,9 @@ groups messages by application. Dunst remains the sole notification daemon.
 Built with Python, GTK3, and SQLite, with event-driven updates and no polling
 loop, web server, or browser runtime.
 
-**Status:** **beta — v0.1.0-beta.1** (Python version `0.1.0b1`). Verified on MX Linux / Debian Trixie with
-Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
+**Status:** **beta — v0.1.0-beta.1** (Python version `0.1.0b1`). Verified on
+MX Linux / Debian Trixie with Xfce, X11, and Dunst 1.12.2. i3 support is intended
+but not yet verified.
 
 ## Screenshots
 
@@ -241,9 +242,9 @@ Details and actual evidence are in the
 
 ## Testing
 
-The beta checks on **2026-10-16** include automated release-packaging guards,
-generic-actions/auto-hide and screenshot tests,
-including opt-in GTK/X11 tests and native Unix sockets.
+The beta checks on **2026-10-16** run **79 tests**, including release-packaging
+guards, generic-actions/auto-hide and screenshot tests, opt-in GTK/X11 tests
+and native Unix sockets. Headless CI passes 62 and skips 17 GTK checks.
 
 Run pure tests without a desktop session:
 

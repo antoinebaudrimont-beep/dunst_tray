@@ -4,6 +4,49 @@ Latest validation: 2026-10-16 (earlier dated results retained below)
 
 Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
+## v0.1.0-beta.1 release gates — 2026-10-16
+
+- Reviewed all prepared changes and re-opened each native screenshot: only
+  fictional notifications, no private names/conversations, email/phone/path/
+  terminal content or unexpected windows. PNG metadata guards pass unchanged.
+  Current source/doc files have no credential/private-history findings.
+- Screenshot/docs commit `daa2ca0` was pushed fast-forward from `4cd15f4` after
+  76 tests passed. GitHub Actions run **38938051709** passed both Python 3.11
+  and 3.13 jobs. Remote state was fetched, not inferred from cached references.
+- Package/runtime metadata synchronized to **0.1.0b1**, beta classifier set,
+  README install instructions and dated changelog updated, full prerelease
+  notes prepared with all three tag-pinned screenshots and known limitations.
+- **79 tests pass**, including 17 opt-in GTK/X11 tests. Headless mode passes
+  62 and skips 17. Three packaging tests guard version consistency, complete
+  reproducible committed-source archives, ignored/uncommitted-file exclusion,
+  permissions/checksums and incorrect-version rejection. Syntax, desktop entry,
+  compilation and diff checks pass; known GTK StatusIcon warnings remain.
+- The source archive is built twice from the same commit and compared byte for
+  byte, then verified with SHA-256. Git 2.47.3 / Python 3.13.5 / zlib 1.3.1 were
+  used. The archive has one versioned root, normalized ownership, fixed commit
+  time, no gzip filename/time, and contains source, scripts, assets, docs,
+  tests/screenshots and MIT license, without Git/runtime/private files.
+- Isolated installation acceptance passes: old public `4cd15f4` install,
+  upgrade to beta, exact installed source/assets/version, launcher help/version,
+  autostart path, private permissions, byte-for-byte preference/history
+  preservation, retained synthetic notification/unread flag, default uninstall,
+  reinstall, purge and clean beta install with auto-hide off. A synthetic Dunst
+  config stays unchanged throughout. No tray/daemon is started.
+- Initial sandbox setup failed before any installer ran because its mount
+  targets were below a read-only root. The validator now uses a private root
+  with read-only `/usr` and `/etc`, hidden host home and private XDG/tmp/run/PID/
+  network state. No unsafe fallback exists. The corrected full check passed.
+- Repeat build/checksum/archive privacy review, full tests and isolated
+  acceptance against the final committed archive are mandatory before tagging;
+  exact final main/tag CI must pass before publishing. Artifact checksums live
+  in the release's `SHA256SUMS` (not embedded here to avoid circular checksums).
+  Anonymous release/download/image access and downloaded checksums are checked
+  after publication. See [RELEASING.md](RELEASING.md).
+- This task does not change, reinstall, restart or stop the personal installed
+  tray, Walite or Dunst, or read/change normal settings/history. No new claims
+  about i3, Wayland, reboot, private WhatsApp navigation or long-term behavior
+  are made. Earlier dated preparation-only checkpoints below are historical.
+
 ## Privacy-safe screenshot preparation — 2026-10-16
 
 - Three native screenshots are prepared locally in `docs/screenshots/`, with

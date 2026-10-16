@@ -3,7 +3,7 @@
 
 Never runs an installer outside the sandbox. HOME is not reassigned: a private
 filesystem is mounted over that location, with private XDG state, PID/network
-namespaces, no desktop/bus access and a read-only host root. Requires bwrap and
+namespaces, no desktop/bus access and read-only system directories. Requires bwrap and
 the ordinary installed system dependencies. No app is launched or restarted.
 """
 from __future__ import annotations
@@ -53,8 +53,11 @@ def outside(archive: Path, previous: str):
             (work / name).mkdir(mode=0o700)
         # Source paths resolve in the host before bubblewrap enters its sandbox.
         command = ["bwrap", "--unshare-all", "--new-session", "--die-with-parent",
-                   "--hostname", "release-fixture", "--ro-bind", "/", "/",
-                   "--tmpfs", "/home", "--tmpfs", "/root", "--tmpfs", "/tmp",
+                   "--hostname", "release-fixture", "--tmpfs", "/",
+                   "--ro-bind", "/usr", "/usr", "--ro-bind", "/etc", "/etc",
+                   "--symlink", "usr/bin", "/bin", "--symlink", "usr/sbin", "/sbin",
+                   "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
+                   "--dir", "/home", "--dir", "/root", "--tmpfs", "/tmp",
                    "--tmpfs", "/run", "--proc", "/proc", "--dev", "/dev",
                    "--dir", str(Path.home()), "--bind", str(temporary / "home"), str(Path.home()),
                    "--ro-bind", str(current), "/release", "--ro-bind", str(old), "/previous",

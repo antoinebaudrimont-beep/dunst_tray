@@ -1,8 +1,11 @@
 # Publishing
 
 The maintainer authorized a public GitHub repository named `dunst_tray` under
-the authenticated account. This publishes the existing development history as
-a pre-release project; it does not imply a stable release or authorize a tag.
+the authenticated account, preserving development history. The repository
+already exists; do not recreate it. On 2026-10-16 the maintainer separately
+authorized **v0.1.0-beta.1**, an annotated tag and a GitHub **prerelease**, only
+after validation. See [RELEASING.md](RELEASING.md) for those gates. This is not
+authorization for a stable release, force-push, or installed-app changes.
 
 ## Publication checks
 
