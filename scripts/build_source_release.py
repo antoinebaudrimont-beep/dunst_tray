@@ -38,7 +38,8 @@ def build(repository: Path, output: Path, ref: str = "HEAD") -> tuple[Path, str]
                            for target in node.targets))
     if metadata["project"]["version"] != VERSION or runtime != VERSION:
         raise ValueError("Committed package/runtime versions must both be " + VERSION)
-    raw = git(repository, "archive", "--format=tar", "--prefix=" + PREFIX + "/", commit)
+    raw = git(repository, "-c", "tar.umask=0022", "archive", "--format=tar",
+              "--prefix=" + PREFIX + "/", commit)
     required = {"pyproject.toml", "README.md", "CHANGELOG.md", "LICENSE",
                 "scripts/install.sh", "scripts/uninstall.sh", "assets/dunst-tray.in",
                 "assets/default-config.ini", "assets/dunst-tray.desktop",

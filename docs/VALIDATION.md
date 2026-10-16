@@ -25,7 +25,8 @@ Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
   byte, then verified with SHA-256. Git 2.47.3 / Python 3.13.5 / zlib 1.3.1 were
   used. The archive has one versioned root, normalized ownership, fixed commit
   time, no gzip filename/time, and contains source, scripts, assets, docs,
-  tests/screenshots and MIT license, without Git/runtime/private files.
+  tests/screenshots and MIT license, without Git/runtime/private files. Explicit
+  archive permissions (0644/0755) avoid local Git umask differences.
 - Isolated installation acceptance passes: old public `4cd15f4` install,
   upgrade to beta, exact installed source/assets/version, launcher help/version,
   autostart path, private permissions, byte-for-byte preference/history

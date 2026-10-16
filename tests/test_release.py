@@ -59,7 +59,8 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(archive.extractfile(release.PREFIX + "/README.md").read(),
                                  (ROOT / "README.md").read_bytes())
                 installer = archive.getmember(release.PREFIX + "/scripts/install.sh")
-                self.assertTrue(installer.mode & 0o111)
+                self.assertEqual(installer.mode, 0o755)
+                self.assertTrue(all(item.mode in {0o644, 0o755} for item in archive.getmembers()))
                 self.assertTrue(all(item.uid == 0 and item.gid == 0 for item in archive.getmembers()))
             with self.assertRaises(FileExistsError):
                 release.build(repository, root / "one")

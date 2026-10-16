@@ -18,7 +18,9 @@ cmp dist/first/dunst-tray-0.1.0-beta.1.tar.gz dist/second/dunst-tray-0.1.0-beta.
 The archive contains the committed source tree (including tests, docs, native
 screenshots, installer/uninstaller, assets and MIT license), never untracked or
 ignored runtime files or `.git`. `git archive` fixes ownership and uses the
-commit timestamp; gzip uses timestamp zero, no filename and compression level 9.
+commit timestamp; explicit `tar.umask=0022` fixes files/directories at 0644/0755
+independently of local Git configuration. Gzip uses timestamp zero, no filename
+and compression level 9.
 The embedded Git archive commit identifies the exact source. Rebuilding the same
 commit with the same Git/zlib toolchain is byte-for-byte reproducible. Different
 compression implementations/versions may produce different compressed bytes.
