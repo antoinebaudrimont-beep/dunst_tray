@@ -124,9 +124,26 @@ func TestDunstTrayNavigationFixture(t *testing.T) {
 				if trigger == syscall.SIGUSR2 {
 					id, label = "fixture-group@g.us", "Group"
 				}
+				title, body := "DunstTrayWaliteFixture: "+label, fmt.Sprintf("Synthetic notification %d", sequence)
+				if os.Getenv("WALITE_TRAY_SCREENSHOT_DATA") == "1" {
+					// Fictional display data only; production tickets/TUI remain real.
+					title = "Mira Fern"
+					if trigger == syscall.SIGUSR2 {
+						title = "Luma Trails Club"
+					}
+					messages := []string{
+						"The weekend trail plan is ready.",
+						"I added a few ideas to the sketchbook.",
+						"The new trail map looks great!",
+						"Let's meet by the little blue pavilion.",
+						"I'll bring the picnic blanket.",
+						"That sounds like a lovely afternoon.",
+						"See you on the next adventure!",
+					}
+					body = messages[(sequence-1)%len(messages)]
+				}
 				_ = actions.Notify(producer, tui.Notification{
-					ChatID: id, Title: "DunstTrayWaliteFixture: " + label,
-					Body: fmt.Sprintf("Synthetic notification %d", sequence),
+					ChatID: id, Title: title, Body: body,
 				})
 			}
 		}

@@ -4,6 +4,43 @@ Latest validation: 2026-10-16 (earlier dated results retained below)
 
 Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
+## Privacy-safe screenshot preparation — 2026-10-16
+
+- Three native screenshots are prepared locally in `docs/screenshots/`, with
+  no application Python changes from published `4cd15f4`. The capture uses
+  real GTK3, xfwm4/compositing, xfce4-panel/XEmbed and Dunst on a cookie-protected
+  isolated Xvfb display and separate session bus/XDG directories. It is not a
+  photograph/capture of the personal desktop or a generated/mock UI.
+- Production Walite v2 receiver/TUI in an offline archived fixture supplies
+  genuine functional discussion controls. Only optional fixture display data
+  changes to fictional contacts/messages. Group/direct navigation and ticket
+  rotation passed before capture; no WhatsApp client or account was created.
+- The final center shows three groups, five messages and Show older (2);
+  Settings shows applied five-second auto-hide; the desktop image shows a real
+  unread dot from a post-opening arrival. Final native PNGs were visually
+  inspected individually for private data and unexpected desktop content.
+- Direct captured and decoded PNG pixels match. Lossless compression 9 yields
+  135,762 bytes total; only IHDR/sBIT/IDAT/IEND chunks are present, with valid
+  CRCs and no EXIF/XMP/text/author/timestamp/path metadata. Hashes and the full
+  privacy checklist are in [the capture record](screenshots/README.md).
+- README places a responsive, full-resolution-linked gallery near the start.
+  GitHub's actual Markdown API retained all three images, widths and top
+  alignment for README and the draft prerelease notes. A local browser preview
+  using GitHub styles verified narrow-width image wrapping/readability; this
+  does not claim that unpublished screenshot URLs already work on GitHub.
+- **76 tests pass** including 17 opt-in GTK checks; headless discovery passes
+  59 and skips those 17. Two new guards cover PNG integrity/metadata/dimensions/
+  size and README/draft image references. Compilation, shell syntax and diff
+  checks pass. Existing GTK3 deprecation warnings remain.
+- Normal apps were never stopped, installed or restarted, and no actual history,
+  preferences or Dunst configuration were opened for capture. Only the existing
+  GTK theme/font names were read to mirror appearance in the isolated process.
+  Xvfb was unpacked into temporary storage, not installed system-wide.
+- [Draft v0.1.0-beta.1 notes](releases/v0.1.0-beta.1.md) include future
+  tag-pinned screenshot URLs. They require the approved files/tag to be published
+  before resolving. Version bumps, packaging and release gates remain pending.
+  Screenshot changes remain local/uncommitted for review: no push/tag/release.
+
 ## Generic actions and optional inactivity auto-hide — 2026-10-16
 
 ### Investigation and source validation

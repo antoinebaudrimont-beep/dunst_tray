@@ -1,5 +1,31 @@
 # Work progress — resumable implementation
 
+## Current task — privacy-safe release screenshots (2026-10-16)
+
+- Scope: prepare three actual GTK3/X11 screenshots and documentation locally.
+  Do not start a release or execute the rest of the beta plan. Base main is
+  published 4cd15f4; no production Python source or version metadata changed.
+- Completed isolated capture with real Xfce panel/WM, Dunst and production UI,
+  separate X11/bus/XDG state, trusted Debian Xvfb unpacked only in temporary
+  storage. Normal tray/Walite and personal notification history/settings/Dunst
+  stay untouched. Theme/font names were read only to match current appearance.
+- Fictional screenshot mode added only to the opt-in Go fixture. Production
+  receiver/TUI and secure v2 rotation are exercised; no WhatsApp account/client
+  or message sending. Three example groups, seven fictional Walite records,
+  five visible messages/Show older (2), real controls and real unread dot.
+- Final artifacts: notification-center.png 474x886 / 48,730 bytes; settings.png
+  498x494 / 30,182 bytes; desktop-integration.png 1120x960 / 56,850 bytes.
+  All three visually inspected. No private content or metadata; CRC/chunk/pixel
+  verification passes. Provenance/hashes/reproduction in screenshots/README.md.
+- README now has a near-top responsive gallery. Actual GitHub Markdown renderer
+  retains its images/widths/alignment and the prerelease draft's links; narrow
+  local browser preview reviewed. Draft tag URLs are future publication targets,
+  not live links yet. Full prerelease draft lives in releases/v0.1.0-beta.1.md.
+- All 76 tests pass (59 headless/native-socket + 17 GTK), including two new
+  screenshot privacy/integrity/reference guards. Syntax/diff checks pass.
+- Leave changes local/uncommitted for review. No push, tag, release, version
+  bump, binary package, system install, normal app restart or Walite edit.
+
 ## Current task — universal focus and optional auto-hide (2026-10-16)
 
 - New attached brief authorizes implementation, local installation/restart and

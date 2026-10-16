@@ -13,6 +13,26 @@ loop, web server, or browser runtime.
 **Status:** pre-release (`0.1.0.dev0`). Verified on MX Linux / Debian Trixie with
 Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
 
+## Screenshots
+
+Real GTK3/X11 captures in an isolated Xfce session, using only fictional contacts
+and example notifications. Click an image for its full-resolution view.
+
+**Notification Center and Settings**
+
+<p>
+  <a href="docs/screenshots/notification-center.png"><img src="docs/screenshots/notification-center.png" alt="Notification center with three application groups, five fictional Walite messages, older-message navigation and genuine discussion controls" width="430" align="top"></a>
+  <a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Actual settings dialog with appearance controls and automatic closing enabled at five seconds" width="460" align="top"></a>
+</p>
+
+**Xfce desktop integration** — the bell's white dot marks a new notification
+that arrived after opening the center.
+
+[![Xfce panel with the unread tray bell and notification center on a clean desktop](docs/screenshots/desktop-integration.png)](docs/screenshots/desktop-integration.png)
+
+No personal history, account data or desktop content was loaded. See the
+[capture and privacy record](docs/screenshots/README.md).
+
 ## Features
 
 - Persistent tray bell with **one white dot** when retained notifications are
@@ -36,12 +56,6 @@ Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
   timeout (5 seconds initially). Hides only the center, not the tray or history.
 - **Apply**, **Cancel**, and **Restore Defaults**, with saved preferences and
   immediate appearance updates.
-
-## Screenshots
-
-Screenshots are not included in this public snapshot. Desktop validation used
-synthetic notifications; personal notification contents are not included in
-the repository. Any future screenshots should also use synthetic content.
 
 ## Requirements
 
@@ -215,7 +229,7 @@ Details and actual evidence are in the
 
 ## Testing
 
-The generic-actions/auto-hide check on **2026-10-16** runs **74 tests**,
+The generic-actions/auto-hide and screenshot checks on **2026-10-16** run **76 tests**,
 including opt-in GTK/X11 tests and native Unix sockets.
 
 Run pure tests without a desktop session:

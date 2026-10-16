@@ -7,6 +7,8 @@ Versioning once releases are tagged.
 
 ### Added
 
+- Privacy-reviewed native GTK3/Xfce screenshots, a reproducible isolated capture
+  harness, PNG metadata/link guards and a draft first-prerelease gallery.
 - Optional inactivity auto-hide (off by default, 5 seconds, range 3–120), with
   interaction/Settings/modal holds, persistent preferences and GTK timer tests.
 - Conservative foreground-PTY process identity fallback for terminal desktop
