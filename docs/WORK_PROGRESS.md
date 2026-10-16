@@ -1,5 +1,20 @@
 # Work progress — resumable implementation
 
+## Current task — publish v0.1.0-beta.1 (2026-10-16)
+
+- User authorized first beta publication, annotated tag, curated source archive
+  and checksums, after validation. No installed app, Walite, real settings,
+  history or Dunst configuration may be changed. Earlier checkpoints below are
+  historical instructions/results, not restrictions on this authorized release.
+- Screenshot/docs commit `daa2ca0` pushed safely to existing main after review
+  and all 76 tests passed. All three images inspected again: fictional data,
+  correct references and no private PNG metadata. Current tracked files scanned
+  without printing private content; no credential/runtime/private-file findings.
+- Release metadata now agrees on 0.1.0b1 / v0.1.0-beta.1, with beta classifier,
+  complete curated notes, reproducible committed-source build tooling and an
+  opt-in bubblewrap installer validator. Final release gates are recorded in
+  RELEASING.md and VALIDATION.md. Publication status is authoritative on GitHub.
+
 ## Current task — privacy-safe release screenshots (2026-10-16)
 
 - Scope: prepare three actual GTK3/X11 screenshots and documentation locally.

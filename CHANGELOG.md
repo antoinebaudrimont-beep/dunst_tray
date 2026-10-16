@@ -5,10 +5,20 @@ Versioning once releases are tagged.
 
 ## Unreleased
 
+No changes yet.
+
+## 0.1.0-beta.1 — 2026-10-16
+
+First public **beta**; Python/package version `0.1.0b1`. Tested on MX Linux /
+Debian Trixie / Xfce / X11; Wayland unsupported and i3 not verified.
+
 ### Added
 
+- Reproducible committed-source archive, SHA-256 checksums, packaging guards
+  and isolated installation/upgrade/removal validation without touching a live
+  installation. No binary, Debian or PyPI package is supplied in this beta.
 - Privacy-reviewed native GTK3/Xfce screenshots, a reproducible isolated capture
-  harness, PNG metadata/link guards and a draft first-prerelease gallery.
+  harness, PNG metadata/link guards and a first-prerelease gallery.
 - Optional inactivity auto-hide (off by default, 5 seconds, range 3–120), with
   interaction/Settings/modal holds, persistent preferences and GTK timer tests.
 - Conservative foreground-PTY process identity fallback for terminal desktop

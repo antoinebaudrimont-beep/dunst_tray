@@ -40,11 +40,13 @@ class ScreenshotTests(unittest.TestCase):
                 self.assertEqual(chunks[-1], b"IEND")
                 self.assertTrue(zlib.decompress(compressed))
 
-    def test_readme_and_draft_reference_every_capture(self):
+    def test_readme_and_release_notes_reference_every_capture(self):
         readme = (ROOT / "README.md").read_text()
         notes = (ROOT / "docs/releases/v0.1.0-beta.1.md").read_text()
         for name in IMAGES:
             self.assertIn(f"docs/screenshots/{name}", readme)
             self.assertIn(f"v0.1.0-beta.1/docs/screenshots/{name}", notes)
         self.assertLess(readme.index("## Screenshots"), readme.index("## Features"))
-        self.assertIn("no tag or GitHub release has been created", notes)
+        self.assertIn("**beta prerelease**", notes)
+        self.assertIn("0.1.0b1", notes)
+        self.assertIn("Wayland is unsupported", notes)

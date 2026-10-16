@@ -10,7 +10,7 @@ groups messages by application. Dunst remains the sole notification daemon.
 Built with Python, GTK3, and SQLite, with event-driven updates and no polling
 loop, web server, or browser runtime.
 
-**Status:** pre-release (`0.1.0.dev0`). Verified on MX Linux / Debian Trixie with
+**Status:** **beta — v0.1.0-beta.1** (Python version `0.1.0b1`). Verified on MX Linux / Debian Trixie with
 Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
 
 ## Screenshots
@@ -80,10 +80,22 @@ sudo apt install git dunst python3 python3-gi python3-cairo \
   python3-gi-cairo gir1.2-gtk-3.0 wmctrl x11-utils
 ```
 
-Clone and install as your normal user:
+Download the versioned source archive and `SHA256SUMS` from the
+[beta prerelease](https://github.com/antoinebaudrimont-beep/dunst_tray/releases/tag/v0.1.0-beta.1),
+place them in the same directory, and verify before installing:
 
 ```sh
-git clone https://github.com/antoinebaudrimont-beep/dunst_tray.git
+sha256sum -c SHA256SUMS
+tar -xzf dunst-tray-0.1.0-beta.1.tar.gz
+cd dunst-tray-0.1.0-beta.1
+./scripts/install.sh
+~/.local/bin/dunst-tray
+```
+
+Alternatively, clone the tested beta tag and install as your normal user:
+
+```sh
+git clone --branch v0.1.0-beta.1 https://github.com/antoinebaudrimont-beep/dunst_tray.git
 cd dunst_tray
 ./scripts/install.sh
 ~/.local/bin/dunst-tray
@@ -229,7 +241,8 @@ Details and actual evidence are in the
 
 ## Testing
 
-The generic-actions/auto-hide and screenshot checks on **2026-10-16** run **76 tests**,
+The beta checks on **2026-10-16** include automated release-packaging guards,
+generic-actions/auto-hide and screenshot tests,
 including opt-in GTK/X11 tests and native Unix sockets.
 
 Run pure tests without a desktop session:
@@ -300,6 +313,8 @@ See the [architecture](docs/ARCHITECTURE.md),
 [work checkpoint](docs/WORK_PROGRESS.md), and
 [publishing notes](docs/PUBLISHING.md). Use synthetic fixtures and screenshots,
 run relevant tests, and keep changes focused.
+The [beta packaging procedure](docs/RELEASING.md) covers deterministic source
+archives, checksum verification and isolated install/upgrade/removal checks.
 
 ## License
 

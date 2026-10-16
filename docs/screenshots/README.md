@@ -1,6 +1,6 @@
 # Screenshot provenance and privacy review
 
-Captured 2026-10-16 for the proposed **v0.1.0-beta.1** prerelease. These are
+Captured 2026-10-16 for the **v0.1.0-beta.1** prerelease. These are
 native GTK3/X11 framebuffer captures, not generated images or reconstructed UI.
 The application Python sources are unchanged from `4cd15f4`.
 
@@ -91,10 +91,10 @@ three images and closes only its own processes/temporary data. It does not
 install, stop or restart the normal tray or Walite. `feh --no-fehbg` also avoids
 writing the user's wallpaper startup file.
 
-## Publication status
+## Release inclusion
 
-Images and README changes are **local preparation for review**, not published.
-The [draft prerelease description](../releases/v0.1.0-beta.1.md) includes all
-three captures using future tag-pinned absolute image URLs (relative image
-paths are unsuitable in a release body). Those URLs cannot resolve publicly
-until the approved files/tag are published. No tag or release was created.
+The [prerelease description](../releases/v0.1.0-beta.1.md) includes all three
+captures using tag-pinned absolute image URLs (relative paths are unsuitable in
+a release body). These same reviewed image bytes ship in the curated beta source
+archive and are covered by its checksum. Release gates and reproducible packaging
+are documented in [RELEASING.md](../RELEASING.md).
