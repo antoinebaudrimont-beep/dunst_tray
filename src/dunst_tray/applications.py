@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import configparser
 import os
+import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +18,29 @@ class DesktopApplication:
     name: str
     icon: str
     window_classes: frozenset[str]
+    executable: str = ""
+    terminal: bool = False
+
+
+def desktop_executable(command: str) -> str:
+    """Extract an identity only; never execute or interpret desktop commands."""
+    if len(command) > 4096:
+        return ""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return ""
+    if not words:
+        return ""
+    name = Path(words[0]).name
+    # Interpreters/launchers identify many unrelated programs, not one app.
+    if (not re.fullmatch(r"[\w.+-]+", name)
+            or re.fullmatch(r"(?:python|pypy|ruby|perl|lua)[0-9.]*", name)
+            or name in {"env", "sh", "bash", "dash", "zsh", "fish", "java",
+                        "node", "nodejs", "electron", "flatpak", "busybox",
+                        "gtk-launch", "xdg-open"}):
+        return ""
+    return name
 
 
 class ApplicationCatalog:
@@ -60,21 +85,26 @@ class ApplicationCatalog:
                     self.applications.append(DesktopApplication(
                         desktop_id, name, entry.get("Icon", ""),
                         frozenset(classes),
+                        desktop_executable(entry.get("Exec", "")),
+                        entry.getboolean("Terminal", False),
                     ))
                 except (OSError, UnicodeError, configparser.Error, KeyError,
                         ValueError):
                     continue
 
-    def resolve(self, notification: Notification) -> DesktopApplication | None:
+    def candidates(self, notification: Notification) -> list[DesktopApplication]:
         desktop_id = notification.desktop_entry.removesuffix(".desktop")
         if desktop_id:
-            return next((
+            return [
                 app for app in self.applications
                 if app.desktop_id == desktop_id
-            ), None)
+            ]
         name = notification.app_name.casefold()
-        matches = [
+        return [
             app for app in self.applications
             if name in (app.name.casefold(), app.desktop_id.casefold())
         ]
+
+    def resolve(self, notification: Notification) -> DesktopApplication | None:
+        matches = self.candidates(notification)
         return matches[0] if len(matches) == 1 else None

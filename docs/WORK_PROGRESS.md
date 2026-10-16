@@ -1,5 +1,58 @@
 # Work progress — resumable implementation
 
+## Current task — universal focus and optional auto-hide (2026-10-16)
+
+- New attached brief authorizes implementation, local installation/restart and
+  X11 synthetic acceptance, then commit. **No push or release.** Start clean on
+  main at b2c9007 (already tracking the same origin/main). Walite source stays
+  unchanged; preserve rotating-ticket v2 and all existing behavior.
+- Confirmed root cause: UI, Walite/desktop eligibility and WindowActions all
+  incorrectly required a default callback to offer window focus. Installed aerc
+  hook has no action, desktop-entry or stable message-ID metadata. Its user
+  desktop entry has a precise StartupWMClass; generic Show app can resolve it.
+- Installed aerc docs expose command IPC, search/view/account/folder commands,
+  and mail-received AERC_MESSAGE_ID, but none of that binds current Notify calls
+  to a message. mailto opens a composer, not a received email. Dunst 1.12.2
+  introspection confirms callbacks invoke by visible position, not stored ID.
+  Never guess from private text, replay arbitrary commands or forge deep links.
+- Implement general exact desktop/WM_CLASS identity; conservative terminal
+  foreground-process ownership fallback from trusted Terminal/Exec metadata,
+  same host/user and single PTY, with no command-line inspection. Ambiguity is
+  disabled. Show app is independent of callbacks; unsupported message actions
+  remain disabled/hidden with explanations. No application-name patch list.
+- Add disabled-by-default auto_hide and 5-second timeout (bounded 3–120) to
+  existing settings. Single GLib deadline with activity reset, pointer/menu/
+  settings/modal/action holds, clean cancellation on hide/destroy, no polling.
+- First old suite had two expected assertions tied to the removed default-action
+  gate; update those to the requested new behavior. Add pure identity/timer and
+  GTK/settings tests, then full regression and isolated desktop acceptance.
+- COMPLETE: 74 tests pass against source and final installed package (57
+  headless/native-socket + 17 GTK). Syntax, desktop-file and diff checks pass.
+  Added a regression that caught/fixed weak-wrapper tracking and Gtk.Box packing
+  bypassing Container::add; rebuilt/paged controls are now watched and pruned.
+- Real X11 synthetic acceptance passed against source and installed package:
+  aerc restored from minimized, ChatGPT, Task Manager, Walite, plain GTK,
+  missing icons, unknown/ambiguous targets, foreground-PTY resolution and two
+  matching terminal windows. Final actual aerc focus also passes with no
+  desktop-entry hint and no default callback, without creating a history row.
+- Auto-hide live: disabled stays open, physical Apply persists, Settings and
+  held controls pause, mouse/scroll reset, hiding preserves new unread/history/
+  tray, 15 reopen/close cycles cancel sources, preferences reload after restart.
+- Fresh offline production-Walite TUI check with normal Walite left running:
+  repeated/alternating direct/group notifications navigate with auto-hide on,
+  one-use fresh fixed-expiry rotation and retained rows. Ambiguous marker focus
+  is rejected; no arbitrary raise. Existing full security tests pass unchanged.
+- Existing installer deployed final source; normal tray restored, instance lock
+  verified, config hash unchanged, normal history aggregates unchanged/zero
+  fixture rows, private modes 0700/0600, DND 0 and same Dunst owner. Auto-hide
+  remains off in the user's existing preferences. Code-only rollback retained
+  in pre-actions-autohide-20261016. Disposable synthetic build/run tree removed.
+- Walite source untouched/clean on main at cc694de (merge containing 5ad0b96).
+  No Walite/aerc/Dunst/account changes or normal Walite restart. Full results,
+  limits and exact file map are in VALIDATION.md and ACTIONS.md.
+- Implementation, deployment and validation complete; record in one local
+  commit only. **No push, tag or release**.
+
 ## Current task — repeatable Walite navigation (2026-10-15)
 
 - User confirms real WhatsApp navigation and Xfce reboot autostart work.

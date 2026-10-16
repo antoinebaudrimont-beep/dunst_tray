@@ -169,3 +169,13 @@ focus without ticket consumption, draft/modal protection, unavailable receiver,
 history preservation and minimum-width controls. It does not select a private
 real-account conversation or send a message. See `VALIDATION.md` for results,
 not assumptions about whether this opt-in check was run.
+
+For a navigation-only regression without stopping the normal Walite, stop only
+the tray, launch the same offline fixture, then run
+`PYTHONPATH=src python3 scripts/check_walite_coexisting_live.py FIXTURE_DIRECTORY`.
+With two marked Walite windows, generic focus must remain disabled; physical
+Open discussion clicks still route to the fixture's exact socket. This check
+uses auto-hide enabled, alternates/repeats synthetic direct/group requests,
+verifies actual rendered TUI state and fresh fixed-expiry tickets, and stops
+only the fixture. It does not establish unique-window focusing or re-test the
+older full draft/modal/expiry/restart desktop sequence above.

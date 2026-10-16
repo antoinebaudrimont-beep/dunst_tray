@@ -1,9 +1,124 @@
 # Validation record
 
-Date: 2026-10-15  
+Latest validation: 2026-10-16 (earlier dated results retained below)
+
 Target: Debian 13.7 (Trixie), kernel 6.12.111, X11, Xfce, Dunst 1.12.2
 
-## Repeatable navigation, rotating-ticket v2 — latest task
+## Generic actions and optional inactivity auto-hide — 2026-10-16
+
+### Investigation and source validation
+
+- The renderer and activation eligibility incorrectly required a sender's
+  default callback even for generic focus. aerc's installed notify-send hook
+  supplies none. It also provides no message ID or navigation binding; aerc
+  command IPC alone cannot safely recover one. See [ACTIONS.md](ACTIONS.md).
+- **74 tests pass**, including 17 opt-in GTK tests and native Unix sockets.
+  Coverage adds no-callback focus, exact/ambiguous identities, local-host/PID/
+  foreground-PTY ownership, multiple terminals/tabs, bounded process snapshots,
+  timer deadlines and nesting, migration/bounds, Settings Apply/Cancel/Defaults,
+  dynamic GTK input controls, confirmation holds and unchanged unread/history.
+- Two old default-action assertions were updated for the intended behavior.
+  An additional dynamic-child test found a genuine handler-lifetime/packing
+  issue: GTK C ownership does not retain Python wrappers, and Box packing can
+  bypass Container::add. Live-tree synchronization now retains connected
+  wrappers and disconnects/prunes removed controls after rebuilds/paging.
+  The full final rerun passes. Existing GTK3 deprecation warnings remain.
+- Source compilation, shell syntax and diff-whitespace checks pass. No new
+  runtime dependency, history schema or Walite wire-protocol change is needed.
+
+### Actual desktop acceptance before installation
+
+Ran `check_actions_autohide_live.py` using the real Xfce/X11 session, physical
+xdotool clicks, transient no-action notifications, a filtered temporary store
+and temporary preferences. Normal tray stopped; Dunst and normal apps stayed
+running. No personal message content was used or recorded.
+
+- Show app raised the existing aerc, ChatGPT, Xfce Task Manager and Walite
+  windows. aerc was first minimized, then restored by the action.
+- Another real GTK fixture focused through exact WM_CLASS despite no desktop
+  entry or icon. Unknown identities and two same-class windows stayed disabled.
+- A real kitty-hosted foreground sleep fixture focused via numeric process/
+  PTY ownership, without a matching application class. A second independently
+  hosted matching fixture made the action unavailable instead of choosing one.
+- Disabled center stayed open; physical Settings Apply saved a 3-second timeout;
+  an open Settings dialog prevented hiding past that interval. After closing
+  Settings, inactivity hid only the panel: history, new-arrival unread state
+  and embedded tray remained. Reopening acknowledged as before.
+- Physical mouse movement and scroll each extended the deadline. A held mouse
+  control prevented hiding until release. Fifteen open/close cycles canceled
+  the timer correctly; reconstructed tray loaded the saved preferences.
+  Pure scheduling tests additionally exercise 1,000 events with one pending
+  source, nested holds and repeated cancellation (no timer accumulation).
+- DND level and the notification-service D-Bus owner were unchanged. The first
+  harness run checked Apply before GTK processed its click; corrected it to
+  await persisted state. Complete rerun passed; no unresolved harness failure.
+
+Walite regression used an isolated archive of **5ad0b96** and the existing Go
+fixture, with no account client. `check_walite_coexisting_live.py` physically
+clicked alternating and repeated synthetic group/direct notifications with
+auto-hide enabled. Production TUI state changed correctly, each success rotated
+to a fresh ticket with identical expiry, and both rows remained reusable.
+The normal Walite was never stopped or signalled. Two marked windows correctly
+disabled generic focus; navigation made **no arbitrary raise call**. A fixture
+startup readiness race was fixed in the harness before the successful rerun.
+Normal single-window Walite Show app was separately verified above.
+
+This is not a fresh private WhatsApp/email, reboot, 24-hour expiry, full Walite
+draft/modal/restart desktop or long-duration CPU benchmark. Earlier full v2
+desktop evidence below remains historical; existing security/expiry/restart/
+draft/modal automated tests pass unchanged.
+
+### Local installation
+
+- Installed with the unchanged `scripts/install.sh` into
+  `~/.local/opt/dunst-tray`. Every installed Python source matches this checkout.
+  **All 74 tests pass again against the final installed package.** Headless
+  discovery runs 57 and skips the 17 opt-in GTK checks. Compilation, shell
+  syntax, desktop-file validation and diff-whitespace checks pass.
+- Repeated the complete generic-actions/auto-hide desktop sequence against the
+  final installed package, including holding a real GTK group-header control.
+  Repeated the coexisting offline production-Walite navigation sequence against
+  that same installed package. Both complete runs passed.
+- Additionally checked actual aerc focus using synthetic in-memory metadata
+  with **neither** a default action **nor** a desktop-entry hint, matching the
+  installed hook's omissions; restored prior focus afterward. No Notify call
+  or normal-history entry was created by this final identity-only check.
+  This check waits for asynchronous X11 activation rather than assuming a
+  fixed 200ms delay; that initial too-short probe was corrected and passed.
+- User configuration is byte-identical (SHA-256 unchanged); manual closing
+  remains enabled until the user opts in. Normal history count/read-state/max-ID
+  aggregates were unchanged throughout installation/isolated tests, with zero
+  synthetic fixture rows. Private directory/database remain 0700/0600.
+- Normal installed tray safely restored and its held single-instance lock
+  verified. Dunst is operational, DND remains level 0, and its service owner
+  stayed unchanged. Normal Walite was not stopped, installed, modified or
+  signalled; its sole normal window marker resolves again after fixture exit.
+  Its repository is clean on main, merge commit `cc694de` containing `5ad0b96`.
+- Code-only rollback remains at
+  `~/.local/opt/dunst-tray-backups/pre-actions-autohide-20261016`; existing older
+  backups remain untouched. The current launcher can use it via
+  `DUNST_TRAY_APP_DIR`, or reinstall the prior checkout. No private data was
+  copied. Disposable synthetic build/run files were removed; the committed
+  fixture and documented procedure can reproduce them.
+- Final tests have no failures. Earlier updated assertions, test timing/readiness
+  races and the dynamic-handler bug are documented above and resolved.
+  No push, tag or release performed.
+
+### Change map
+
+- Resolution: `src/dunst_tray/activation.py`, `applications.py`, new `processes.py`.
+- UI/behavior: `src/dunst_tray/ui.py`, new `autohide.py`, `settings.py`, `config.py`,
+  and `assets/default-config.ini`.
+- Tests: `tests/test_activation.py`, `test_applications.py`, `test_config.py`,
+  `test_gui.py`, new `test_autohide.py` and `test_processes.py`.
+- Live harnesses: `scripts/check_live.py`, new `check_actions_autohide_live.py`
+  and `check_walite_coexisting_live.py`.
+- Documentation: `README.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `WALITE.md`,
+  `VALIDATION.md`, `WORK_PROGRESS.md` and new `ACTIONS.md`.
+- No changes to `walite.py`, `protocol.py`, `history.py`, the Walite repository,
+  account data, aerc configuration or Dunst configuration.
+
+## Repeatable navigation, rotating-ticket v2 — previous task
 
 The user reports that real WhatsApp navigation works and Xfce startup after a
 reboot is verified. These are **user-reported acceptance**, not a fresh reboot

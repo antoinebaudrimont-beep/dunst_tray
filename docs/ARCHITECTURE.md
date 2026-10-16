@@ -6,14 +6,17 @@
   `BecomeMonitor`, and filters notification calls and their replies.
 - `protocol.py` converts the eight `Notify` arguments into a small application
   model. It retains `desktop-entry` identity and urgency while dropping
-  arbitrary hints and sender metadata. Valid Walite v1 activation hints are the
+  arbitrary hints and sender metadata. Valid Walite v1/v2 activation hints are the
   only private capability exception, scoped to their notification record.
 - `history.py` persists a bounded record set in SQLite. The database is private
   and replacement IDs do not overwrite earlier local rows.
 - `dunst.py` runs `dunstctl` only in response to user actions. There is no
   periodic subprocess or polling loop.
 - `applications.py` resolves desktop identity or unambiguous application names
-  against installed desktop files, respecting user overrides.
+  against installed desktop files, respecting user overrides. It extracts
+  terminal/executable identity metadata but never executes desktop commands.
+- `processes.py` provides bounded foreground-PTY ownership checks, rejecting
+  ambiguous terminal sessions without inspecting process arguments or titles.
 - `activation.py` validates Walite's private X11 marker or matches installed
   desktop IDs/`StartupWMClass` against X11 window classes, then raises the sole
   matching window for retained actions.
@@ -30,7 +33,10 @@
 - `tray_icon.py` caches an in-memory, theme-colored clean bell with one optional
   white unread dot. DND never selects a different bell image.
 - `settings.py` edits draft appearance preferences. `config.py` bounds values,
-  fits panel geometry, and atomically saves only appearance options.
+  fits panel geometry, and atomically saves appearance/auto-hide options.
+- `autohide.py` owns one monotonic inactivity deadline and one one-shot GLib
+  source at most; reference-counted holds protect Settings, menus and nested
+  action/modal transactions. Hiding never changes history/unread/DND.
 - `panel.py` clips background and children to rounded compositor-backed X11
   surfaces; without a compositor it uses an opaque rectangular surface.
 
@@ -65,6 +71,8 @@ center does not offer unverified position-based callbacks. **Show app** means
 verified application focus, never selection of a specific message. Availability
 is cached per application for each panel rebuild; missing, unknown, or ambiguous
 targets are disabled with explanations. Clicks revalidate the target.
+Show app is independent of whether a default callback was advertised. Exact
+class fallback and conservative terminal ownership rules are in [ACTIONS.md](ACTIONS.md).
 
 Installed desktop applications such as ChatGPT use durable window activation.
 The notification's `desktop-entry` hint, or an unambiguous display name for

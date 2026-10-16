@@ -24,6 +24,8 @@ class AppConfig:
     panel_opacity: int = 97
     corner_radius: int = 14
     show_icons: bool = True
+    auto_hide: bool = False
+    auto_hide_timeout: int = 5
 
 
 def config_home() -> Path:
@@ -93,6 +95,10 @@ def load_config(path: Path | None = None) -> AppConfig:
         panel_opacity=_bounded_int(parser, "panel", "opacity", 97, 50, 100),
         corner_radius=_bounded_int(parser, "panel", "corner_radius", 14, 0, 24),
         show_icons=_boolean(parser, "panel", "show_icons", True),
+        auto_hide=_boolean(parser, "panel", "auto_hide", False),
+        auto_hide_timeout=_bounded_int(
+            parser, "panel", "auto_hide_timeout", 5, 3, 120,
+        ),
     )
 
 
@@ -104,7 +110,7 @@ def _boolean(parser, section: str, option: str, default: bool) -> bool:
 
 
 def save_appearance(config: AppConfig, path: Path) -> AppConfig:
-    """Atomically save appearance only, preserving unrelated sections/options."""
+    """Save panel appearance/behavior, preserving unrelated sections/options."""
     parser = configparser.ConfigParser(interpolation=None)
     if path.exists():
         # Refuse to overwrite an unreadable or malformed existing config.
@@ -118,6 +124,8 @@ def save_appearance(config: AppConfig, path: Path) -> AppConfig:
         "opacity": max(50, min(100, config.panel_opacity)),
         "corner_radius": max(0, min(24, config.corner_radius)),
         "show_icons": str(config.show_icons).lower(),
+        "auto_hide": str(config.auto_hide).lower(),
+        "auto_hide_timeout": max(3, min(120, config.auto_hide_timeout)),
     }.items():
         parser.set("panel", option, str(value))
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,7 @@ from .activation import (
     ActivationError, DesktopWindowActivator, WaliteWindowActivator, WindowActions,
 )
 from .applications import ApplicationCatalog
+from .autohide import InactivityTimer
 from .config import panel_geometry, save_appearance
 from .dunst import DunstControlError, DunstController
 from .model import Notification
@@ -31,6 +33,14 @@ if TYPE_CHECKING:
     from .history import HistoryStore
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _interaction(method):
+    @wraps(method)
+    def guarded(self, *args, **kwargs):
+        with self.auto_hide.hold("transaction"):
+            return method(self, *args, **kwargs)
+    return guarded
 
 CSS = b"""
 .notification-center {
@@ -89,6 +99,7 @@ class GroupCard(Gtk.Box):
         show_icons: bool = True,
         navigate_callback=None,
         navigation_availability=None,
+        on_content_changed=None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("group-card")
@@ -99,6 +110,7 @@ class GroupCard(Gtk.Box):
         self.action_callback = action_callback
         self.navigate_callback = navigate_callback
         self.navigation_availability = navigation_availability
+        self.on_content_changed = on_content_changed
         self.expanded = False
 
         self.header = Gtk.Button()
@@ -187,19 +199,13 @@ class GroupCard(Gtk.Box):
                 )
             has_navigation = bool(notification.walite_activation
                                   and self.navigate_callback)
-            footer = Gtk.Box(orientation=(Gtk.Orientation.VERTICAL
-                                         if has_navigation
-                                         else Gtk.Orientation.HORIZONTAL),
-                             spacing=3)
+            footer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
             stamp = datetime.fromtimestamp(notification.received_at).strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
             footer.pack_start(_label(stamp, "message-time"), True, True, 0)
-            controls = footer
-            if has_navigation:
-                controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                                   spacing=6)
-                footer.pack_start(controls, False, False, 0)
+            controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            footer.pack_start(controls, False, False, 0)
             if has_navigation:
                 navigate = Gtk.Button(label="Open discussion")
                 navigate.set_relief(Gtk.ReliefStyle.NONE)
@@ -213,17 +219,31 @@ class GroupCard(Gtk.Box):
                     self.navigate_callback(item),
                 )
                 controls.pack_end(navigate, False, False, 0)
-            if notification.has_default_action:
-                action = Gtk.Button(label="Show app")
-                action.set_relief(Gtk.ReliefStyle.NONE)
-                actionable, explanation = self.can_activate(notification)
-                action.set_sensitive(actionable)
-                action.set_tooltip_text(explanation)
-                action.connect(
-                    "clicked",
-                    lambda _button, item=notification: self.action_callback(item),
+            elif notification.actions:
+                unavailable = Gtk.Button(label="Open message")
+                unavailable.set_relief(Gtk.ReliefStyle.NONE)
+                unavailable.set_sensitive(False)
+                unavailable.set_tooltip_text(
+                    "The sender advertised a callback, but Dunst 1.12 does not "
+                    "offer safe invocation by stored notification ID. "
+                    "No supported message-navigation interface was provided."
                 )
-                controls.pack_end(action, False, False, 0)
+                controls.pack_end(unavailable, False, False, 0)
+            action = Gtk.Button(label="Show app")
+            action.set_relief(Gtk.ReliefStyle.NONE)
+            actionable, explanation = self.can_activate(notification)
+            action.set_sensitive(actionable)
+            if not has_navigation:
+                explanation += (
+                    " Message navigation is unavailable without a supported "
+                    "sender-provided interface; notification text is never a command."
+                )
+            action.set_tooltip_text(explanation)
+            action.connect(
+                "clicked", lambda _button, item=notification:
+                self.action_callback(item),
+            )
+            controls.pack_end(action, False, False, 0)
             message.pack_start(footer, False, False, 0)
             self.messages.pack_start(message, False, False, 0)
 
@@ -238,6 +258,8 @@ class GroupCard(Gtk.Box):
         for child in self.messages.get_children():
             child.show_all()
         self.messages.set_visible(self.expanded)
+        if self.on_content_changed and self.get_parent() is not None:
+            self.on_content_changed()
 
     def _show_older(self, _button: Gtk.Button) -> None:
         self.visible_count += self.page_size
@@ -272,9 +294,20 @@ class TrayApplication:
         self._syncing_pause = False
         self.settings_dialog = None
         self._refresh_source = None
+        # Keep wrappers alive while connected: GTK's C child ownership alone
+        # does not retain their Python wrappers. Prune removed controls below.
+        self._activity_widgets = {}
+        self._pointer_pressed = False
+        self.auto_hide = InactivityTimer(
+            GLib.timeout_add, GLib.source_remove, self._hide_window,
+        )
+        self.auto_hide.configure(config.auto_hide, config.auto_hide_timeout)
 
         self._install_css()
         self.window = self._build_window()
+        self.window.connect("show", lambda *_args: self.auto_hide.opened())
+        self.window.connect("hide", self._center_hidden)
+        self._watch_activity(self.window)
         screen = self.window.get_screen()
         self._screen_signals = []
         if screen:
@@ -381,6 +414,8 @@ class TrayApplication:
 
     def _build_menu(self) -> tuple[Gtk.Menu, Gtk.CheckMenuItem]:
         menu = Gtk.Menu()
+        menu.connect("map", lambda *_args: self.auto_hide.pause("menu"))
+        menu.connect("unmap", lambda *_args: self.auto_hide.resume("menu"))
         enabled = Gtk.CheckMenuItem(label="Notifications enabled")
         enabled.connect("toggled", self._toggle_notifications)
         menu.append(enabled)
@@ -411,6 +446,70 @@ class TrayApplication:
     def _hide_window(self, *_args) -> bool:
         self.window.hide()
         return True
+
+    def _center_hidden(self, *_args):
+        self.auto_hide.hidden()
+        if self._pointer_pressed:
+            self._pointer_pressed = False
+            self.auto_hide.resume("pointer")
+
+    def _watch_activity(self, widget):
+        # Attach before child default handlers consume clicks/scrolls. Watching
+        # dynamically added descendants also covers paging and rebuilt groups.
+        if widget in self._activity_widgets:
+            return
+        widget.add_events(
+            Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.SCROLL_MASK
+            | Gdk.EventMask.SMOOTH_SCROLL_MASK | Gdk.EventMask.KEY_PRESS_MASK
+            | Gdk.EventMask.KEY_RELEASE_MASK | Gdk.EventMask.TOUCH_MASK
+        )
+        handlers = [widget.connect("event", self._center_activity)]
+        self._activity_widgets[widget] = handlers
+        if isinstance(widget, Gtk.Container):
+            handlers.append(widget.connect(
+                "add", lambda _container, child: self._watch_activity(child),
+            ))
+            for child in widget.get_children():
+                self._watch_activity(child)
+
+    def _sync_activity_watchers(self):
+        current = set()
+
+        def visit(widget):
+            current.add(widget)
+            if isinstance(widget, Gtk.Container):
+                for child in widget.get_children():
+                    visit(child)
+
+        visit(self.window)
+        for widget in self._activity_widgets.keys() - current:
+            for handler in self._activity_widgets.pop(widget):
+                widget.disconnect(handler)
+        for widget in current:
+            self._watch_activity(widget)
+
+    def _center_activity(self, widget, event):
+        if widget.get_toplevel() != self.window:
+            return False
+        if event.type in (Gdk.EventType.BUTTON_PRESS, Gdk.EventType.TOUCH_BEGIN):
+            if not self._pointer_pressed:
+                self._pointer_pressed = True
+                self.auto_hide.pause("pointer")
+        elif event.type in (Gdk.EventType.BUTTON_RELEASE, Gdk.EventType.TOUCH_END,
+                            Gdk.EventType.TOUCH_CANCEL):
+            if self._pointer_pressed:
+                self._pointer_pressed = False
+                self.auto_hide.resume("pointer")
+        if event.type in (
+            Gdk.EventType.MOTION_NOTIFY, Gdk.EventType.BUTTON_PRESS,
+            Gdk.EventType.BUTTON_RELEASE, Gdk.EventType.SCROLL,
+            Gdk.EventType.KEY_PRESS, Gdk.EventType.KEY_RELEASE,
+            Gdk.EventType.TOUCH_BEGIN, Gdk.EventType.TOUCH_UPDATE,
+            Gdk.EventType.TOUCH_END, Gdk.EventType.TOUCH_CANCEL,
+        ):
+            self.auto_hide.activity()
+        return False
 
     def _position_window(self) -> None:
         display = Gdk.Display.get_default()
@@ -485,6 +584,7 @@ class TrayApplication:
                     self.config.show_icons,
                     self._open_walite_discussion,
                     self.walite_navigation.availability,
+                    self._sync_activity_watchers,
                 )
                 if app_name in group_state:
                     card.expanded, card.visible_count = group_state[app_name]
@@ -492,6 +592,9 @@ class TrayApplication:
                     card._render_messages()
                 self.groups_box.pack_start(card, False, False, 0)
         self.groups_box.show_all()
+        # Gtk.Box.pack_start bypasses Container::add. Explicitly synchronize
+        # after rebuilds and GroupCard paging rather than polling the tree.
+        self._sync_activity_watchers()
         self._update_tray_icon()
         if self.window.get_visible():
             GLib.idle_add(self._restore_scroll, scroll_position)
@@ -544,6 +647,7 @@ class TrayApplication:
             self._syncing_pause = False
         self._update_tray_icon()
 
+    @_interaction
     def _toggle_notifications(self, item: Gtk.CheckMenuItem) -> None:
         if self._syncing_pause:
             return
@@ -553,12 +657,14 @@ class TrayApplication:
             self._error("Could not change Do Not Disturb", str(error))
         self.refresh_dunst_state()
 
+    @_interaction
     def _replay_latest(self, _item: Gtk.MenuItem) -> None:
         try:
             self.dunst.replay_latest()
         except DunstControlError as error:
             self._error("Could not replay a notification", str(error))
 
+    @_interaction
     def _perform_action(self, notification: Notification) -> None:
         try:
             self.actions.activate(notification)
@@ -571,6 +677,7 @@ class TrayApplication:
     def _can_perform_action(self, notification: Notification) -> tuple[bool, str]:
         return self.actions.availability(notification)
 
+    @_interaction
     def _open_walite_discussion(self, notification: Notification) -> None:
         if (notification.app_name.casefold() != "walite"
                 or notification.walite_activation is None):
@@ -604,6 +711,7 @@ class TrayApplication:
         self.window.hide()
         self.refresh()
 
+    @_interaction
     def _confirm_clear(self, _widget) -> None:
         dialog = Gtk.MessageDialog(
             transient_for=self.window,
@@ -632,13 +740,24 @@ class TrayApplication:
         if self.settings_dialog is not None:
             self.settings_dialog.present()
             return
-        self.settings_dialog = AppearanceDialog(
-            self.window, self.config, self._apply_appearance,
-            lambda: setattr(self, "settings_dialog", None),
-        )
+        self.auto_hide.pause("settings")
+        try:
+            self.settings_dialog = AppearanceDialog(
+                self.window, self.config, self._apply_appearance,
+                self._settings_closed,
+            )
+        except Exception:
+            self.auto_hide.resume("settings")
+            raise
+
+    def _settings_closed(self):
+        self.settings_dialog = None
+        self.auto_hide.resume("settings")
 
     def _apply_appearance(self, draft):
         self.config = save_appearance(draft, self.config_path)
+        self.auto_hide.configure(self.config.auto_hide,
+                                 self.config.auto_hide_timeout)
         self.window.corner_radius = self.config.corner_radius
         self._reload_css()
         self._position_window()
@@ -647,6 +766,7 @@ class TrayApplication:
         self.window.queue_draw()
         return self.config
 
+    @_interaction
     def _error(self, title: str, detail: str) -> None:
         dialog = Gtk.MessageDialog(
             transient_for=self.window,
@@ -660,6 +780,11 @@ class TrayApplication:
         dialog.destroy()
 
     def destroy(self) -> None:
+        self.auto_hide.hidden()
+        for widget, handlers in self._activity_widgets.items():
+            for handler in handlers:
+                widget.disconnect(handler)
+        self._activity_widgets.clear()
         if self._refresh_source is not None:
             GLib.source_remove(self._refresh_source)
             self._refresh_source = None

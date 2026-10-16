@@ -23,8 +23,8 @@ Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
 - Independent retention of notification calls, including messages that Dunst
   replaces or combines into a single popup. Default retention: 100 messages.
 - Do Not Disturb controls, replay through Dunst, and confirmed history clearing.
-- **Show app** focuses a verified running application window. Tested with
-  ChatGPT, Walite, and Xfce Task Manager.
+- **Show app** is offered independently of sender callbacks and focuses a
+  verified, unique running window, including reliably identified terminal apps.
 - **Open discussion** uses compatible Walite notifications' private one-time
   tickets to request the original direct/group chat, independently of Show app.
   V2 rotates tickets securely so the same notification can be opened repeatedly.
@@ -32,6 +32,8 @@ Xfce, X11, and Dunst 1.12.2. i3 support is intended but not yet verified.
   entries, with a fallback when an icon is unavailable.
 - Graphical appearance settings for background opacity, width, height, corner
   radius, and application-icon visibility.
+- Optional inactivity auto-hide, disabled by default, with a 3–120 second
+  timeout (5 seconds initially). Hides only the center, not the tray or history.
 - **Apply**, **Cancel**, and **Restore Defaults**, with saved preferences and
   immediate appearance updates.
 
@@ -122,7 +124,7 @@ next explicit opening. Closing alone does not acknowledge them. Unread state
 persists across tray restarts and is independent of DND and total history size.
 Existing history from before the unread feature migrates as read.
 
-### Appearance settings
+### Appearance and behavior settings
 
 Open **Settings** from the tray menu:
 
@@ -133,6 +135,8 @@ Open **Settings** from the tray menu:
 | Height | 300–850 px |
 | Corner radius | 0–24 px |
 | Show application icons | On / off; disabling reclaims icon spacing |
+| Automatically close notification center | Off by default |
+| Inactivity timeout | 3–120 seconds; initially 5 |
 
 The panel fits the monitor's usable work area. Opacity affects the background
 while text stays readable. These controls affect the notification center, not
@@ -142,6 +146,13 @@ Dunst's popups.
 changes already applied remain saved. **Restore Defaults** fills the controls
 and takes effect only after Apply. Appearance changes do not clear history or
 require a Dunst restart.
+
+Auto-hide starts when the center opens and resets on mouse motion, scrolling,
+keys and touch. Held pointer controls, Settings, menus, confirmation/error
+dialogs and application-action transactions pause it. After interaction ends,
+a full timeout starts again. Auto-hide does not clear history, acknowledge new
+arrivals, change DND or stop the bell. Existing configuration files remain
+manual-close until you explicitly enable it and Apply.
 
 ### Configuration file
 
@@ -158,6 +169,8 @@ height = 680
 opacity = 97
 corner_radius = 14
 show_icons = true
+auto_hide = false
+auto_hide_timeout = 5
 margin_top = 48
 margin_right = 16
 
@@ -165,20 +178,23 @@ margin_right = 16
 monitor_dbus = true
 ```
 
-Restart the tray after manual file edits. The appearance dialog saves its
+Restart the tray after manual file edits. The Settings dialog saves its
 options atomically while preserving unrelated settings.
 
 ## Compatibility and limitations
 
 Verified desktop behavior includes notification capture, Xfce tray interaction,
 DND, history/unread persistence, appearance persistence, and window focusing
-for ChatGPT, Walite, and Task Manager. Details and actual evidence are in the
+for aerc, ChatGPT, Walite, Task Manager, and synthetic GTK/terminal fixtures.
+Details and actual evidence are in the
 [validation record](docs/VALIDATION.md).
 
 - **Show app is application focus, not message navigation.** It appears for
-  notifications advertising a default action and is enabled only for a reliable
+  every notification and is enabled only for a reliable
   single running window. Missing, unknown, or ambiguous targets are disabled
   with an explanatory tooltip. No window is selected using partial title text.
+  Desktop metadata, exact X11 class identities and conservative foreground-PTY
+  ownership checks are detailed in [application actions](docs/ACTIONS.md).
 - Dunst's original actions are tied to popup position and sender lifetime;
   saved callbacks cannot safely select a particular historical message. New
   Walite notifications use a separate documented one-time ticket protocol;
@@ -188,15 +204,19 @@ for ChatGPT, Walite, and Task Manager. Details and actual evidence are in the
 - Popups, popup stacking, screen position, and visible-popup limits remain
   Dunst's responsibility. A reference configuration fragment is provided in
   [docs/dunst-integration.conf](docs/dunst-integration.conf).
-- Reboot/login behavior, i3 integration, and **real aerc notifications** are
-  unverified. The aerc scenario was tested using synthetic fixtures only.
+- aerc's current mail hook has no per-message callback or target metadata.
+  Its existing window can be focused, but **Open message is unavailable**.
+  Command IPC is not itself a safe notification-to-email binding; see
+  [aerc investigation](docs/ACTIONS.md#aerc).
+- Agent-run reboot/login behavior and i3 integration remain unverified.
+  App focusing was checked with synthetic notifications, not private messages.
 - Actual light-panel configuration, compositor-off operation, monitor hotplug,
   session-bus disconnection, and long-duration resource use remain unverified.
 
 ## Testing
 
-The rotating-ticket integration check on **2026-10-15** runs **56 tests**:
-43 non-GUI tests and 13 opt-in GTK/X11 tests, including native Unix sockets.
+The generic-actions/auto-hide check on **2026-10-16** runs **74 tests**,
+including opt-in GTK/X11 tests and native Unix sockets.
 
 Run pure tests without a desktop session:
 
@@ -204,8 +224,8 @@ Run pure tests without a desktop session:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-This discovers 56 tests, runs 43, and skips the 13 GTK checks. Run all 56 on an
-X11 desktop with the system GTK/Python dependencies installed:
+Without a desktop, GTK checks are skipped. Run the complete suite on an X11
+desktop with the system GTK/Python dependencies installed:
 
 ```sh
 DUNST_TRAY_GUI_TESTS=1 PYTHONPATH=src python3 -m unittest discover -s tests -v
@@ -218,14 +238,20 @@ sh -n scripts/install.sh scripts/uninstall.sh
 
 Automated tests are separate from the recorded **live Xfce acceptance** of real
 capture, tray clicks, DND, 20-message unread behavior, settings, restarts, and
-application focus. That acceptance was completed before this documentation
-publication pass and is not claimed as a fresh live run here.
+application focus. Dates and scope are recorded explicitly in the validation
+record; synthetic checks do not establish private-message navigation support.
 
 [`scripts/check_live.py`](scripts/check_live.py) contains the opt-in live
 sequence. Read its header before running: it briefly changes/restores DND and
 requires stopping the normal tray to keep fixtures out of normal history. It
 uses temporary synthetic history, filters personal notifications, and disables
 daemon-history deletion. Restart the normal tray afterward.
+
+[`scripts/check_actions_autohide_live.py`](scripts/check_actions_autohide_live.py)
+adds no-callback application focusing, terminal ambiguity, physical inactivity
+events, Settings holds and preference restarts. Stop the normal tray first;
+its temporary history accepts only synthetic notifications and it never changes
+DND. `xdotool` and `kitty` are opt-in acceptance tools, not new runtime needs.
 
 ## Privacy
 

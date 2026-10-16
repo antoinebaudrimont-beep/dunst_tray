@@ -108,6 +108,118 @@ class TrayStateTests(unittest.TestCase):
         self.history.close()
         self.temporary.cleanup()
 
+    def test_auto_hide_settings_apply_cancel_defaults_and_reload(self):
+        from dunst_tray.config import AppConfig, load_config
+        from dunst_tray.settings import RESTORE_DEFAULTS
+        self.tray._show_settings(None)
+        dialog = self.tray.settings_dialog
+        self.assertFalse(dialog.auto_hide.get_active())
+        self.assertFalse(dialog.auto_hide_timeout.get_sensitive())
+        dialog.auto_hide.set_active(True)
+        dialog.auto_hide_timeout.set_value(9)
+        dialog.response(self.GtkResponse("APPLY"))
+        self.assertTrue(self.tray.config.auto_hide)
+        self.assertEqual(load_config(self.tray.config_path).auto_hide_timeout, 9)
+        dialog.auto_hide_timeout.set_value(20)
+        dialog.response(self.GtkResponse("CANCEL"))
+        self.assertEqual(self.tray.config.auto_hide_timeout, 9)
+        self.tray._show_settings(None)
+        self.tray.settings_dialog.response(RESTORE_DEFAULTS)
+        self.assertFalse(self.tray.settings_dialog.auto_hide.get_active())
+        self.assertEqual(self.tray.settings_dialog.auto_hide_timeout.get_value_as_int(), 5)
+        self.tray.settings_dialog.response(self.GtkResponse("APPLY"))
+        self.assertEqual(self.tray.config, AppConfig())
+
+    @staticmethod
+    def GtkResponse(name):
+        from dunst_tray.ui import Gtk
+        return getattr(Gtk.ResponseType, name)
+
+    def test_auto_hide_activity_settings_hold_and_history_invariants(self):
+        from dunst_tray.ui import Gdk, Gtk
+        self.history.add(notification("Synthetic"))
+        self.tray._apply_appearance(replace(self.tray.config, auto_hide=True,
+                                           auto_hide_timeout=3))
+        now = [0.0]
+        self.tray.auto_hide.clock = lambda: now[0]
+        self.tray.toggle_center()
+        self.assertEqual(self.history.unread_count(), 0)
+        self.history.add(replace(notification("Synthetic"), received_at=2))
+        self.tray.notification_received()
+        now[0] = 2
+        for kind in (Gdk.EventType.MOTION_NOTIFY, Gdk.EventType.SCROLL,
+                     Gdk.EventType.KEY_PRESS):
+            self.tray._center_activity(self.tray.window, Gdk.Event.new(kind))
+            self.assertEqual(self.tray.auto_hide.deadline, 5)
+        self.tray._show_settings(None)
+        self.assertIsNone(self.tray.auto_hide.source)
+        now[0] = 30
+        self.tray.auto_hide._expired()
+        self.assertTrue(self.tray.window.get_visible())
+        self.tray.settings_dialog.response(Gtk.ResponseType.CANCEL)
+        self.assertIsNotNone(self.tray.auto_hide.source)
+        # Cancel the actual source before manually delivering its fake deadline.
+        self.tray.auto_hide._cancel()
+        now[0] = 33
+        self.tray.auto_hide._expired()
+        self.assertFalse(self.tray.window.get_visible())
+        self.assertEqual(self.history.count(), 2)
+        self.assertEqual(self.history.unread_count(), 1)
+        self.assertFalse(self.dunst.paused)
+        self.assertTrue(self.tray.status_icon.get_visible())
+        self.tray.toggle_center()
+        self.assertEqual(self.history.unread_count(), 0)
+
+    def test_no_action_record_still_has_show_app_and_unknown_is_explained(self):
+        from dunst_tray.ui import GroupCard
+        item = replace(notification("Unknown app"), actions=())
+        card = GroupCard("Unknown app", [item], 5,
+                         lambda _item: (False, "No unique identity"),
+                         lambda _item: None, ApplicationCatalog([]))
+        controls = card.messages.get_children()[0].get_children()[-1].get_children()[-1]
+        show = controls.get_children()[0]
+        self.assertEqual(show.get_label(), "Show app")
+        self.assertFalse(show.get_sensitive())
+        self.assertIn("No unique identity", show.get_tooltip_text())
+        card.destroy()
+
+    def test_modal_transaction_holds_timer_and_dynamic_child_events_reset_it(self):
+        from dunst_tray.ui import Gdk, GLib, Gtk
+        self.tray._apply_appearance(replace(self.tray.config, auto_hide=True))
+        self.tray.toggle_center()
+        child = Gtk.Button(label="Synthetic dynamic control")
+        self.tray.groups_box.add(child)
+        child.show()
+        self.assertIn(child, self.tray._activity_widgets)
+        now = [10.0]
+        self.tray.auto_hide.clock = lambda: now[0]
+        child.emit("event", Gdk.Event.new(Gdk.EventType.KEY_PRESS))
+        self.assertEqual(self.tray.auto_hide.deadline, 15)
+        for index in range(7):
+            self.history.add(replace(notification("Synthetic"), received_at=index + 1))
+        self.tray.refresh()
+        self.assertNotIn(child, self.tray._activity_widgets)
+        card = self.tray.groups_box.get_children()[0]
+        control = card.messages.get_children()[0].get_children()[-1].get_children()[-1].get_children()[0]
+        self.assertIn(control, self.tray._activity_widgets)
+        card._show_older(None)
+        self.assertNotIn(control, self.tray._activity_widgets)
+        older_control = card.messages.get_children()[6].get_children()[-1].get_children()[-1].get_children()[0]
+        self.assertIn(older_control, self.tray._activity_widgets)
+        observed = []
+
+        def close_modal():
+            observed.append(self.tray.auto_hide.source is None)
+            for window in Gtk.Window.list_toplevels():
+                if isinstance(window, Gtk.MessageDialog):
+                    window.response(Gtk.ResponseType.CANCEL)
+            return False
+
+        GLib.timeout_add(10, close_modal)
+        self.tray._confirm_clear(None)
+        self.assertEqual(observed, [True])
+        self.assertIsNotNone(self.tray.auto_hide.source)
+
     def test_arrivals_review_dnd_and_window_lifecycle(self):
         self.history.add(notification("Synthetic App"))
         self.tray.notification_received()
@@ -270,7 +382,7 @@ class TrayStateTests(unittest.TestCase):
         footer = card.messages.get_children()[0].get_children()[-1]
         labels = [child.get_label() for child in
                   footer.get_children()[-1].get_children()]
-        self.assertEqual(labels, ["Open discussion"])
+        self.assertCountEqual(labels, ["Show app", "Open discussion"])
         card.destroy()
 
     def test_v2_successive_clicks_preserve_controls_and_independent_conversations(self):

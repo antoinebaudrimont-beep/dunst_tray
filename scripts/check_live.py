@@ -215,6 +215,9 @@ def run():
                 card._toggle(None)
             button = card.messages.get_children()[0].get_children()[-1]
             button = button.get_children()[-1]
+            button = next(child for child in button.get_children()
+                          if isinstance(child, Gtk.Button)
+                          and child.get_label() == "Show app")
             spin(lambda: button.get_mapped())
             assert button.get_sensitive()
             click_widget(button)

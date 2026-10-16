@@ -7,6 +7,10 @@ Versioning once releases are tagged.
 
 ### Added
 
+- Optional inactivity auto-hide (off by default, 5 seconds, range 3–120), with
+  interaction/Settings/modal holds, persistent preferences and GTK timer tests.
+- Conservative foreground-PTY process identity fallback for terminal desktop
+  apps, without executing notification text or desktop commands.
 - Repeatable Walite discussion navigation through coordinated v2 one-use ticket
   rotation, without replay or lifetime extension; generic Show app is unchanged.
 - Walite v1 opaque-ticket discussion navigation, independent of generic
@@ -22,6 +26,8 @@ Versioning once releases are tagged.
 
 ### Fixed
 
+- Offer Show app independently of notification callbacks, including aerc's
+  no-action notifications; explain unavailable message-level navigation.
 - Disable unverified notification callbacks and missing/ambiguous app targets;
   label verified window focusing **Show app**.
 - Preserve expanded groups, paging, and scroll during visible updates, and

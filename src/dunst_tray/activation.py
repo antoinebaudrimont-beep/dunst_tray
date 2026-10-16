@@ -6,11 +6,13 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 from collections.abc import Callable, Sequence
 
-from .applications import ApplicationCatalog
+from .applications import ApplicationCatalog, DesktopApplication
 from .model import Notification
+from .processes import process_snapshot, terminal_matches
 
 WINDOW_ID = re.compile(r"^0x[0-9a-fA-F]+$")
 WALITE_MARKER = re.compile(
@@ -91,8 +93,7 @@ class WaliteWindowActivator(X11WindowActivator):
 
     def can_activate(self, notification: Notification) -> bool:
         return (
-            notification.has_default_action
-            and self.handles(notification)
+            self.handles(notification)
             and self.available
         )
 
@@ -135,23 +136,39 @@ class WaliteWindowActivator(X11WindowActivator):
 class DesktopWindowActivator(X11WindowActivator):
     """Raise windows identified by installed desktop application metadata."""
 
-    def __init__(self, catalog: ApplicationCatalog, **kwargs) -> None:
+    def __init__(self, catalog: ApplicationCatalog,
+                 processes=process_snapshot, **kwargs) -> None:
         super().__init__(**kwargs)
         self.catalog = catalog
+        self.processes = processes
+
+    def identity(self, notification):
+        matches = self.catalog.candidates(notification)
+        if len(matches) == 1:
+            return matches[0]
+        if matches or notification.desktop_entry:
+            return None  # Never weaken an ambiguous/explicit desktop identity.
+        name = notification.app_name.strip()
+        if (not name or name == "Unknown application" or len(name) > 128
+                or any(ord(character) < 32 for character in name)):
+            return None
+        # Without a desktop file only exact WM_CLASS is usable, never titles or
+        # a guessed process executable. A unique match is still required.
+        return DesktopApplication(name, name, "", frozenset({name.casefold()}))
 
     def can_activate(self, notification: Notification) -> bool:
         return bool(
-            self.available and notification.has_default_action
-            and self.catalog.resolve(notification)
+            self.available and self.identity(notification)
         )
 
     def find_window(self, notification: Notification) -> str:
         """Resolve one exact application window, without activating it."""
 
-        app = self.catalog.resolve(notification)
+        app = self.identity(notification)
         if not self.can_activate(notification) or app is None or not self.xprop:
             raise ActivationError("Application window identity is unavailable")
         matches = []
+        windows = []
         for window_id in self._window_ids():
             try:
                 output = self._run(self.xprop, "-id", window_id, "WM_CLASS")
@@ -166,6 +183,33 @@ class DesktopWindowActivator(X11WindowActivator):
                 continue
             if classes & app.window_classes:
                 matches.append(window_id)
+            windows.append(window_id)
+        if not matches and app.terminal and app.executable:
+            try:
+                processes = self.processes()
+            except (OSError, ValueError):
+                raise ActivationError("Process ownership cannot be verified") from None
+            local_host = socket.gethostname().casefold()
+            for window_id in windows:
+                try:
+                    properties = self._run(
+                        self.xprop, "-id", window_id,
+                        "_NET_WM_PID", "WM_CLIENT_MACHINE",
+                    )
+                except ActivationError:
+                    continue
+                pid = re.search(r"^_NET_WM_PID\(CARDINAL\) = (\d+)$",
+                                properties, re.MULTILINE)
+                host = re.search(r'^WM_CLIENT_MACHINE\(STRING\) = (".*")$',
+                                 properties, re.MULTILINE)
+                try:
+                    same_host = bool(host and json.loads(host[1]).casefold()
+                                     == local_host)
+                except (ValueError, AttributeError):
+                    same_host = False
+                if (pid and same_host and terminal_matches(
+                        int(pid[1]), app.executable, processes)):
+                    matches.append(window_id)
         if not matches:
             raise ActivationError(f"No running {app.name} window was found")
         if len(matches) > 1:
@@ -196,8 +240,6 @@ class WindowActions:
         ), None)
 
     def availability(self, notification: Notification) -> tuple[bool, str]:
-        if not notification.has_default_action:
-            return False, "The sender did not provide an action."
         key = (notification.app_name, notification.desktop_entry)
         if key not in self._availability:
             adapter = self.adapter(notification)

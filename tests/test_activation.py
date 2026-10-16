@@ -140,17 +140,16 @@ class DesktopActivationTests(unittest.TestCase):
         self.assertFalse(any(call[:3] == ("wmctrl", "-i", "-a")
                              for call in self.calls))
 
-    def test_unresolvable_expired_and_missing_action_targets_are_disabled(self):
+    def test_unknown_targets_disabled_but_default_action_not_required(self):
         desktop = DesktopWindowActivator(
             self.catalog, wmctrl="wmctrl", xprop="xprop", display=":0",
             runner=self.runner,
         )
         actions = WindowActions(WaliteWindowActivator(display=""), desktop)
-        for item in (
-            notification("Unknown future application"),
-            replace(notification("ChatGPT"), actions=()),
-        ):
-            self.assertFalse(actions.availability(item)[0])
+        self.assertFalse(actions.availability(
+            notification("Unknown future application"))[0])
+        self.assertTrue(actions.availability(
+            replace(notification("ChatGPT"), actions=()))[0])
         self.assertTrue(actions.availability(notification("ChatGPT"))[0])
         # Two same-application windows must not silently select one.
         desktop.runner = lambda args: subprocess.CompletedProcess(

@@ -9,6 +9,24 @@ from dunst_tray.config import AppConfig, load_config, panel_geometry, save_appea
 
 
 class ConfigTests(unittest.TestCase):
+    def test_auto_hide_migration_persistence_and_bounds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.ini"
+            path.write_text("[panel]\nwidth=320\n[custom]\nkeep=yes\n")
+            existing = load_config(path)
+            self.assertFalse(existing.auto_hide)
+            self.assertEqual(existing.auto_hide_timeout, 5)
+            enabled = replace(existing, auto_hide=True, auto_hide_timeout=9)
+            self.assertEqual(save_appearance(enabled, path), enabled)
+            self.assertEqual(load_config(path), enabled)
+            self.assertIn("keep = yes", path.read_text())
+            for text, expected in (("1", 3), ("999", 120), ("bad", 5)):
+                path.write_text("[panel]\nauto_hide=perhaps\n"
+                                f"auto_hide_timeout={text}\n")
+                config = load_config(path)
+                self.assertFalse(config.auto_hide)
+                self.assertEqual(config.auto_hide_timeout, expected)
+
     def test_missing_file_uses_defaults(self) -> None:
         config = load_config(Path("/path/that/does/not/exist"))
         self.assertEqual(config, AppConfig())

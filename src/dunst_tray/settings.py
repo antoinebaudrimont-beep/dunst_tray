@@ -18,7 +18,7 @@ class AppearanceDialog(Gtk.Dialog):
     """Edit draft values; only Apply asks the owner to persist them."""
 
     def __init__(self, parent, config: AppConfig, on_apply, on_closed):
-        super().__init__(title="Notification Center Appearance",
+        super().__init__(title="Notification Center Settings",
                          transient_for=parent, destroy_with_parent=True)
         self.set_resizable(False)
         self.base_config = config
@@ -52,6 +52,15 @@ class AppearanceDialog(Gtk.Dialog):
             grid.attach(widget, 1, row, 1, 1)
         self.show_icons = Gtk.CheckButton(label="Show application icons")
         grid.attach(self.show_icons, 0, 4, 2, 1)
+        self.auto_hide = Gtk.CheckButton(label="Automatically close notification center")
+        self.auto_hide_timeout = Gtk.SpinButton.new_with_range(3, 120, 1)
+        self.auto_hide.connect("toggled", lambda check:
+                               self.auto_hide_timeout.set_sensitive(check.get_active()))
+        grid.attach(self.auto_hide, 0, 5, 2, 1)
+        timeout_label = Gtk.Label(label="Inactivity timeout (seconds)")
+        timeout_label.set_xalign(0)
+        grid.attach(timeout_label, 0, 6, 1, 1)
+        grid.attach(self.auto_hide_timeout, 1, 6, 1, 1)
         content.pack_start(grid, False, False, 0)
         note = Gtk.Label(label=(
             "Changes apply to this notification center.\n"
@@ -76,6 +85,9 @@ class AppearanceDialog(Gtk.Dialog):
         self.height.set_value(config.panel_height)
         self.radius.set_value(config.corner_radius)
         self.show_icons.set_active(config.show_icons)
+        self.auto_hide.set_active(config.auto_hide)
+        self.auto_hide_timeout.set_value(config.auto_hide_timeout)
+        self.auto_hide_timeout.set_sensitive(config.auto_hide)
 
     def draft(self) -> AppConfig:
         return replace(
@@ -84,6 +96,8 @@ class AppearanceDialog(Gtk.Dialog):
             panel_height=self.height.get_value_as_int(),
             corner_radius=self.radius.get_value_as_int(),
             show_icons=self.show_icons.get_active(),
+            auto_hide=self.auto_hide.get_active(),
+            auto_hide_timeout=self.auto_hide_timeout.get_value_as_int(),
         )
 
     def _response(self, _dialog, response):
@@ -97,6 +111,6 @@ class AppearanceDialog(Gtk.Dialog):
                 self.status.set_text(f"Could not save settings: {error}")
                 return
             self.load_values(self.base_config)
-            self.status.set_text("Saved. Appearance updated.")
+            self.status.set_text("Saved. Settings updated.")
         else:
             self.destroy()
